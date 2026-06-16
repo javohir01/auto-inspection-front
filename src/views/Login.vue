@@ -1,0 +1,72 @@
+<script setup lang="ts">
+import { ref } from 'vue';
+import { useRouter } from 'vue-router';
+import { useAuthStore } from '@/stores/auth';
+import { extractError } from '@/composables/useCrud';
+
+const router = useRouter();
+const auth = useAuthStore();
+
+const phone = ref('+998901112233');
+const password = ref('password');
+const error = ref('');
+
+async function submit() {
+  error.value = '';
+  try {
+    await auth.login(phone.value, password.value);
+    router.push({ name: 'Dashboard' });
+  } catch (e) {
+    error.value = extractError(e);
+  }
+}
+</script>
+
+<template>
+  <div class="flex min-h-screen items-center justify-center bg-[#0b0f19] px-4">
+    <div class="w-full max-w-md">
+      <div class="mb-8 text-center">
+        <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-sky-500 text-2xl font-bold">
+          <i class="pi pi-car" />
+        </div>
+        <h1 class="text-2xl font-semibold tracking-tight">Avto Ko‘rik</h1>
+        <p class="mt-1 text-sm text-slate-400">Tizimga kirish uchun ma’lumotlaringizni kiriting</p>
+      </div>
+
+      <div class="rounded-2xl border border-slate-800 bg-[#0e1320] p-7 shadow-xl">
+        <form class="space-y-5" @submit.prevent="submit">
+          <div>
+            <label class="mb-1.5 block text-sm font-medium text-slate-300">Telefon raqami</label>
+            <InputText v-model="phone" class="w-full" placeholder="+998901112233" autocomplete="username" />
+          </div>
+          <div>
+            <label class="mb-1.5 block text-sm font-medium text-slate-300">Parol</label>
+            <Password
+              v-model="password"
+              class="w-full"
+              input-class="w-full"
+              :feedback="false"
+              toggle-mask
+              placeholder="Parol"
+              autocomplete="current-password"
+            />
+          </div>
+
+          <Message v-if="error" severity="error" :closable="false">{{ error }}</Message>
+
+          <Button
+            type="submit"
+            label="Kirish"
+            icon="pi pi-sign-in"
+            class="w-full"
+            :loading="auth.loading"
+          />
+        </form>
+      </div>
+
+      <p class="mt-6 text-center text-xs text-slate-500">
+        Demo — Admin: <span class="text-slate-300">+998901112233</span> · Kassir: <span class="text-slate-300">+998901112244</span> · parol: <span class="text-slate-300">password</span>
+      </p>
+    </div>
+  </div>
+</template>
