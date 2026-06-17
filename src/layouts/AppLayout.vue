@@ -2,11 +2,13 @@
 import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
+import { useTheme } from '@/composables/useTheme';
 import type { Role } from '@/types';
 
 const router = useRouter();
 const auth = useAuthStore();
 const sidebarOpen = ref(true);
+const { isDark, toggleTheme } = useTheme();
 
 interface NavItem {
   label: string;
@@ -55,10 +57,10 @@ async function logout() {
 </script>
 
 <template>
-  <div class="flex min-h-screen bg-[#0b0f19] text-slate-100">
+  <div class="app-shell flex min-h-screen bg-[#0b0f19] text-slate-100">
     <!-- Sidebar -->
     <aside
-      class="flex flex-col border-r border-slate-800 bg-[#0e1320] transition-all duration-200"
+      class="app-sidebar flex flex-col border-r border-slate-800 bg-[#0e1320] transition-all duration-200"
       :class="sidebarOpen ? 'w-64' : 'w-20'"
     >
       <div class="flex h-16 items-center gap-3 border-b border-slate-800 px-5">
@@ -95,15 +97,26 @@ async function logout() {
 
     <!-- Main column -->
     <div class="flex min-w-0 flex-1 flex-col">
-      <header class="flex h-16 items-center justify-between border-b border-slate-800 bg-[#0e1320]/80 px-6 backdrop-blur">
-        <button
-          class="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white"
-          @click="sidebarOpen = !sidebarOpen"
-        >
-          <i class="pi pi-bars" />
-        </button>
+      <header class="app-header flex h-16 items-center justify-between border-b border-slate-800 bg-[#0e1320]/80 px-6 backdrop-blur">
+        <div class="flex items-center gap-2">
+          <button
+            class="app-icon-button flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white"
+            @click="sidebarOpen = !sidebarOpen"
+          >
+            <i class="pi pi-bars" />
+          </button>
+          <button
+            v-tooltip.bottom="isDark ? 'Light mode' : 'Dark mode'"
+            class="app-icon-button flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white"
+            type="button"
+            @click="toggleTheme"
+          >
+            <i :class="isDark ? 'pi pi-sun' : 'pi pi-moon'" />
+          </button>
+        </div>
 
         <div class="flex items-center gap-3">
+          <Tag v-if="auth.isMock" value="Mock data" severity="contrast" />
           <div class="text-right">
             <div class="text-sm font-semibold leading-tight">{{ auth.user?.name }}</div>
             <div class="text-xs text-slate-400">{{ roleLabel }}<span v-if="auth.user?.branch"> · {{ auth.user.branch.name }}</span></div>

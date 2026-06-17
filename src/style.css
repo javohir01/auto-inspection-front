@@ -3,7 +3,7 @@
 /* Dark theme is the default for the admin dashboard */
 :root {
   font-family: 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
-  color-scheme: dark;
+  color-scheme: light dark;
 }
 
 html,
@@ -12,6 +12,7 @@ body {
   min-height: 100vh;
   background-color: #0b0f19;
   color: #f1f5f9;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 #app {
@@ -38,4 +39,93 @@ body {
 }
 .p-datatable-tbody > tr {
   transition: background-color 0.15s ease;
+}
+
+html.light body {
+  background-color: #f8fafc;
+  color: #0f172a;
+}
+
+html.light .app-shell {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+html.light .app-sidebar,
+html.light .app-header {
+  border-color: #dbe3f0 !important;
+}
+
+html.light .app-icon-button {
+  color: #475569 !important;
+}
+
+html.light .app-icon-button:hover {
+  background-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+html.light .bg-\[\#0b0f19\] {
+  background-color: #f8fafc !important;
+}
+
+html.light .bg-\[\#0e1320\] {
+  background-color: #ffffff !important;
+}
+
+html.light .bg-\[\#0e1320\]\/80 {
+  background-color: rgb(255 255 255 / 0.82) !important;
+}
+
+html.light .border-slate-800 {
+  border-color: #dbe3f0 !important;
+}
+
+html.light .text-slate-100 {
+  color: #0f172a !important;
+}
+
+html.light .text-slate-400 {
+  color: #64748b !important;
+}
+
+html.light .text-slate-500 {
+  color: #94a3b8 !important;
+}
+
+html.light .text-slate-300 {
+  color: #334155 !important;
+}
+
+html.light .text-white {
+  color: #ffffff !important;
+}
+
+html.light .hover\:bg-slate-800:hover,
+html.light .hover\:bg-slate-800\/70:hover {
+  background-color: #e2e8f0 !important;
+}
+
+html.light .hover\:text-white:hover {
+  color: #0f172a !important;
+}
+
+html.light .bg-slate-800\/50 {
+  background-color: rgb(226 232 240 / 0.75) !important;
+}
+
+html.light .border-slate-700 {
+  border-color: #cbd5e1 !important;
+}
+
+html.light .bg-slate-700 {
+  background-color: #cbd5e1 !important;
+}
+
+html.light * {
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+html.light *::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
 }

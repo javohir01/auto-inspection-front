@@ -1,4 +1,5 @@
 import http from './http';
+import { isMockModeEnabled, mockCreate, mockGet, mockList, mockRemove, mockUpdate } from '@/mock/backend';
 import type {
   Branch,
   Region,
@@ -28,11 +29,21 @@ export interface ResourceApi<T> {
 // Factory that produces a typed CRUD client for a REST resource.
 function resource<T>(path: string): ResourceApi<T> {
   return {
-    list: (params) => http.get(`/${path}`, { params }).then((r) => r.data.data as T[]),
-    get: (id) => http.get(`/${path}/${id}`).then((r) => r.data.data as T),
-    create: (payload) => http.post(`/${path}`, payload).then((r) => r.data.data as T),
-    update: (id, payload) => http.put(`/${path}/${id}`, payload).then((r) => r.data.data as T),
-    remove: (id) => http.delete(`/${path}/${id}`).then(() => undefined),
+    list: (params) => isMockModeEnabled()
+      ? mockList<T>(path as any, params)
+      : http.get(`/${path}`, { params }).then((r) => r.data.data as T[]),
+    get: (id) => isMockModeEnabled()
+      ? mockGet<T>(path as any, id)
+      : http.get(`/${path}/${id}`).then((r) => r.data.data as T),
+    create: (payload) => isMockModeEnabled()
+      ? mockCreate<T>(path as any, payload)
+      : http.post(`/${path}`, payload).then((r) => r.data.data as T),
+    update: (id, payload) => isMockModeEnabled()
+      ? mockUpdate<T>(path as any, id, payload)
+      : http.put(`/${path}/${id}`, payload).then((r) => r.data.data as T),
+    remove: (id) => isMockModeEnabled()
+      ? mockRemove(path as any, id)
+      : http.delete(`/${path}/${id}`).then(() => undefined),
   };
 }
 

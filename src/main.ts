@@ -8,6 +8,7 @@ import Aura from '@primeuix/themes/aura';
 import ToastService from 'primevue/toastservice';
 import ConfirmationService from 'primevue/confirmationservice';
 import Tooltip from 'primevue/tooltip';
+import { initTheme } from './composables/useTheme';
 
 import './style.css';
 import 'primeicons/primeicons.css';
@@ -42,6 +43,8 @@ import TabList from 'primevue/tablist';
 import Tab from 'primevue/tab';
 import TabPanels from 'primevue/tabpanels';
 import TabPanel from 'primevue/tabpanel';
+
+initTheme();
 
 const app = createApp(App);
 

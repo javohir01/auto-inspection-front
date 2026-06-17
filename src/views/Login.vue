@@ -3,10 +3,13 @@ import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { extractError } from '@/composables/useCrud';
+import { useTheme } from '@/composables/useTheme';
 
 const router = useRouter();
 const auth = useAuthStore();
+const { isDark, toggleTheme } = useTheme();
 
+const demoName = ref('Frontend Admin');
 const phone = ref('+998901112233');
 const password = ref('password');
 const error = ref('');
@@ -20,10 +23,29 @@ async function submit() {
     error.value = extractError(e);
   }
 }
+
+async function createAdminAndLogin() {
+  error.value = '';
+  try {
+    await auth.createAdmin(demoName.value, phone.value, password.value);
+    router.push({ name: 'Dashboard' });
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : extractError(e);
+  }
+}
 </script>
 
 <template>
-  <div class="flex min-h-screen items-center justify-center bg-[#0b0f19] px-4">
+  <div class="app-shell relative flex min-h-screen items-center justify-center bg-[#0b0f19] px-4">
+    <button
+      v-tooltip.bottom="isDark ? 'Light mode' : 'Dark mode'"
+      class="app-icon-button absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white"
+      type="button"
+      @click="toggleTheme"
+    >
+      <i :class="isDark ? 'pi pi-sun' : 'pi pi-moon'" />
+    </button>
+
     <div class="w-full max-w-md">
       <div class="mb-8 text-center">
         <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-sky-500 text-2xl font-bold">
@@ -35,6 +57,10 @@ async function submit() {
 
       <div class="rounded-2xl border border-slate-800 bg-[#0e1320] p-7 shadow-xl">
         <form class="space-y-5" @submit.prevent="submit">
+          <div>
+            <label class="mb-1.5 block text-sm font-medium text-slate-300">Demo admin nomi</label>
+            <InputText v-model="demoName" class="w-full" placeholder="Frontend Admin" />
+          </div>
           <div>
             <label class="mb-1.5 block text-sm font-medium text-slate-300">Telefon raqami</label>
             <InputText v-model="phone" class="w-full" placeholder="+998901112233" autocomplete="username" />
@@ -61,11 +87,21 @@ async function submit() {
             class="w-full"
             :loading="auth.loading"
           />
+          <Button
+            type="button"
+            label="Admin yaratish va kirish"
+            icon="pi pi-user-plus"
+            severity="secondary"
+            outlined
+            class="w-full"
+            :loading="auth.loading"
+            @click="createAdminAndLogin"
+          />
         </form>
       </div>
 
       <p class="mt-6 text-center text-xs text-slate-500">
-        Demo — Admin: <span class="text-slate-300">+998901112233</span> · Kassir: <span class="text-slate-300">+998901112244</span> · parol: <span class="text-slate-300">password</span>
+        Demo rejimida admin user shu formadan yaratiladi. Tayyor userlar: Kassir <span class="text-slate-300">+998901112244</span> · Moderator <span class="text-slate-300">+998901112255</span> · parol: <span class="text-slate-300">password</span>
       </p>
     </div>
   </div>
