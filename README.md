@@ -1,90 +1,329 @@
-# Avto Ko‘rik — Frontend (SPA)
+# Avto Ko'rik Frontend
 
-Texnik ko‘rik tizimining yagona frontend ilovasi. **Vue 3 + Vite + PrimeVue 4 + Pinia +
-Tailwind CSS 4**. Bitta app rolega qarab (admin / kassir / moderator) turli menyu va
-sahifalarni ko‘rsatadi.
+Bu repository texnik ko'rik tizimining yagona SPA frontend qismi. U backend API bilan ishlaydi, role-based menyu beradi, va foydalanuvchini quyidagi oqimlar bo'yicha olib yuradi:
 
-> To‘liq tizim hujjati (Docker, API, arxitektura) — `../vehicle-api/README.md`.
+1. Login
+2. Dashboard
+3. Mijozlar
+4. Avtomobillar
+5. Ko'rik hujjatlari
+6. To'lovlar
+7. Xarajatlar
+8. Admin/moderator kataloglari
 
----
+Backend repository:
 
-## Ishga tushirish
+- `/home/javohir/projects/vehicle-api`
 
-### Docker (butun stack bilan birga)
-```bash
-cd ../vehicle-api && docker compose up -d --build
-# Frontend: http://localhost:8088
+Asosiy ishchi manzil:
+
+- `http://localhost:8088`
+
+## 1. Frontend nima qiladi
+
+Frontend backend bilan to'g'ridan-to'g'ri form field darajasida ishlaydi. U:
+
+- login orqali Sanctum token oladi
+- tokenni `localStorage`da saqlaydi
+- CRUD ekranlarda Laravel resource response'larini ko'rsatadi
+- wizard ichida counterparty, vehicle, inspection document va payment oqimini ketma-ket yaratadi
+- payment yaratishda yangi `lines` va `allocations` payloadini yuboradi
+- list va dashboardlarda legacy compatibility maydonlarini ham ko'ra oladi
+
+## 2. Repository xaritasi
+
+Muhim kataloglar:
+
+- `src/api`
+  HTTP klient va CRUD service factory.
+- `src/stores`
+  Pinia storelar. Hozir eng asosiy store `auth`.
+- `src/router`
+  Sahifalar va role guardlar.
+- `src/layouts`
+  Umumiy shell.
+- `src/views`
+  Har bir ekran.
+- `src/components`
+  Qayta ishlatiladigan UI bo'laklar.
+- `src/composables`
+  Reusable logic.
+- `src/mock`
+  Mock backend. Default holatda o'chirilgan, lekin dev/test paytida yoqish mumkin.
+- `src/types`
+  Frontend ichidagi API entity interfeyslari.
+
+## 3. Asosiy fayllar
+
+### `src/api/http.ts`
+
+Bu yerda:
+
+- `axios` instance yaratiladi
+- `VITE_API_URL` olinadi
+- Bearer token har bir requestga qo'shiladi
+- 401 bo'lsa token o'chiriladi va login sahifasiga qaytiladi
+
+### `src/api/services.ts`
+
+Bu yerda `resource<T>()` factory bor. Har bir API resurs uchun:
+
+- `list`
+- `get`
+- `create`
+- `update`
+- `remove`
+
+metodlari hosil qilinadi.
+
+Shu fayl mock mode va real API o'rtasida switch qiladi.
+
+### `src/stores/auth.ts`
+
+Auth store quyidagilarni boshqaradi:
+
+- `login`
+- `fetchMe`
+- `logout`
+- `isAuthenticated`
+- `isAdmin`
+- `isMock`
+
+### `src/composables/useCrud.ts`
+
+List/create/update/delete ekranlaridagi umumiy state shu yerda:
+
+- `items`
+- `form`
+- `loading`
+- `saving`
+- `dialogVisible`
+- `openCreate`
+- `openEdit`
+- `save`
+- `remove`
+
+### `src/composables/paymentCompat.ts`
+
+Bu frontendning backend bilan eng muhim bridge fayli:
+
+- `buildPaymentPayload()`
+  frontend form state'dan backend kutayotgan `lines` va `allocations` payloadini yig'adi
+- `getPaymentBreakdown()`
+  `lines` bo'lsa ulardan, bo'lmasa legacy `cash_amount/plastic_amount`dan breakdown hisoblaydi
+- `getPrimaryInspectionDocumentId()`
+  payment allocation ichidan document id topadi
+
+## 4. Viewlar nima qiladi
+
+### `views/Login.vue`
+
+- telefon va parol qabul qiladi
+- `auth.login()` ni chaqiradi
+- muvaffaqiyatli bo'lsa dashboardga o'tadi
+
+### `views/Dashboard.vue`
+
+- admin bo'lsa system-wide countlarni ko'rsatadi
+- oddiy rolelar uchun bugungi tushum/xarajat/hujjat holatini ko'rsatadi
+- `payments` breakdown uchun `paymentCompat`dan foydalanadi
+
+### `views/Wizard.vue`
+
+4 bosqichli oqim:
+
+1. Counterparty tanlash yoki yaratish
+2. Vehicle tanlash yoki yaratish
+3. Inspection document yaratish
+4. Ixtiyoriy payment yaratish
+
+Bu ekran backendga ketma-ket bir nechta request yuboradi.
+
+### `views/Payments.vue`
+
+- payment list
+- create/update dialog
+- payment create paytida `payment-methods`ni olib, `buildPaymentPayload()` orqali payload yig'adi
+
+### `views/Documents.vue`
+
+- inspection document list
+- branch/date/license plate filterlari
+
+### `views/Expenses.vue`
+
+- expense CRUD
+- hozircha legacy expense payload bilan ishlaydi
+
+### `views/Counterparties.vue`, `Vehicles.vue`
+
+- reference + operational ma'lumotlar CRUD sahifalari
+
+### `views/Branches.vue`, `Users.vue`, `Catalogs.vue`
+
+- admin/moderator ekranlari
+
+## 5. Frontend qanday data yuboradi
+
+### Login
+
+```json
+{
+  "phone": "+998901112233",
+  "password": "password"
+}
 ```
 
-### Lokal (dev rejim)
-```bash
-npm install
-npm run dev        # http://localhost:5173
-```
-Backend `http://localhost:8000` da ishlayotgan bo‘lishi kerak (Vite `/api` ni proxy qiladi).
+### Counterparty create
 
-### Production build
-```bash
-npm run build      # -> dist/
-npm run preview    # build’ni lokal ko‘rish
-```
-
----
-
-## Loyiha tuzilishi
-
-```
-src/
-├── api/
-│   ├── http.ts          # axios instance: baseURL, Bearer token, 401 interceptor
-│   └── services.ts      # har bir resurs uchun CRUD klient (resource<T> factory)
-├── stores/
-│   └── auth.ts          # Pinia: login / logout / fetchMe, joriy user va token
-├── composables/
-│   └── useCrud.ts       # qayta ishlatiluvchi CRUD holati (list/create/update/delete + toast/confirm)
-├── layouts/
-│   └── AppLayout.vue    # sidebar + topbar; menyu rolega qarab filtrlanadi
-├── router/
-│   └── index.ts         # route’lar + meta.roles + auth/role guard
-├── views/               # sahifalar (lazy-load qilinadi)
-│   ├── Login.vue
-│   ├── Dashboard.vue    # rolega qarab admin statistikasi yoki kunlik hisobot
-│   ├── Wizard.vue       # 4 bosqichli "Yangi ko‘rik" (mijoz → avto → hujjat → to‘lov)
-│   ├── Documents.vue, Payments.vue, Expenses.vue
-│   ├── Counterparties.vue, Vehicles.vue
-│   └── Branches.vue, Users.vue, Catalogs.vue   # admin/moderator
-├── components/
-│   ├── SimpleCatalog.vue       # nom-only CRUD (viloyat, yoqilg‘i, ...)
-│   └── DistrictsCatalog.vue    # tuman (viloyat tanlovi bilan)
-├── types/index.ts       # API entity TS interfeyslari
-├── main.ts              # PrimeVue, Pinia, Router + global komponentlar
-└── style.css            # Tailwind import + dark mavzu
+```json
+{
+  "full_name": "Olimov Vali",
+  "phone": "+998935554433",
+  "region_id": 1,
+  "district_id": 1,
+  "address": "Chilonzor 19-kvartal, 5-uy",
+  "basis_type": "Jismoniy shaxs"
+}
 ```
 
----
+### Vehicle create
 
-## Muhim sozlamalar
+```json
+{
+  "counterparty_id": 1,
+  "vehicle_model_id": 2,
+  "license_plate": "01A123BC",
+  "manufacture_year": 2024,
+  "current_fuel_type_id": 1
+}
+```
 
-- **Tailwind CSS 4** — `@tailwindcss/vite` plagini orqali (`vite.config.ts`).
-  Eski `tailwind.config.js` / `postcss.config.js` yo‘q; `style.css` da `@import "tailwindcss";`.
-- **PrimeVue 4** — mavzu `@primeuix/themes/aura`. Komponentlar `main.ts` da global ro‘yxatdan o‘tkazilgan.
-- **Dark mode** — `index.html` da `<html class="dark">` (doim yoqilgan).
-- **API manzili** — `VITE_API_URL` (default `/api/v1`). Dev’da Vite proxy, Docker’da nginx proxy.
-- **Mock rejim** — `.env` da `VITE_USE_MOCKS=true` qo‘yiladi.
-- **Token** — `localStorage` kaliti `vehicle_token`.
-- **Yo‘l aliasi** — `@` → `src/` (`vite.config.ts` + `tsconfig.app.json`).
+### Inspection document create
 
----
+```json
+{
+  "doc_number": "DOC-0001",
+  "act_number": "ACT-0001",
+  "date": "2026-06-18",
+  "branch_id": 1,
+  "vehicle_id": 1,
+  "counterparty_id": 1,
+  "fuel_type_id": 1,
+  "document_type_id": 1,
+  "employee_id": 1,
+  "status": "completed"
+}
+```
 
-## Rollar bo‘yicha ko‘rinish
+### Payment create
 
-Menyu va sahifalar `auth.user.role` ga qarab cheklanadi (`router/index.ts` `meta.roles`,
-`AppLayout.vue` menyu filtri). To‘liq jadval — `../vehicle-api/README.md`, 6-bo‘lim.
+Frontend hozir backendga quyidagi forward-compatible payload yuboradi:
 
-| Rol | Ko‘radigan bo‘limlar |
-|-----|----------------------|
-| **admin** | Hammasi |
-| **cashier** | Dashboard, Yangi ko‘rik, Hujjatlar, To‘lovlar, Mijozlar, Avtomobillar, Xarajatlar |
-| **moderator** | Dashboard, Mijozlar, Avtomobillar, Ma’lumotnomalar |
+```json
+{
+  "inspection_document_id": 1,
+  "branch_id": 1,
+  "counterparty_id": 1,
+  "date": "2026-06-18",
+  "payment_type": "regular",
+  "status": "draft",
+  "total_amount": 10000,
+  "cash_amount": 10000,
+  "plastic_amount": 0,
+  "receipt_type": "FTK",
+  "lines": [
+    { "payment_method_id": 1, "amount": 10000 }
+  ],
+  "allocations": [
+    { "inspection_document_id": 1, "amount": 10000, "allocation_type": "payment" }
+  ]
+}
+```
 
-Mock demo: admin `998901112233` — parol `password`.
+## 6. Frontend qanday data oladi
+
+Frontend Laravel resource shape'ga tayangan:
+
+```json
+{ "data": ... }
+```
+
+Eng muhim response'lar:
+
+- `/me`
+  current user va uning branchi
+- `/payment-methods`
+  `CASH`, `UZCARD`, `HUMO`, `BANK`, `REFUND`
+- `/payments`
+  legacy + new register maydonlar birga
+- `/inspection-documents`
+  branch, vehicle, counterparty, totals, items, generated documents
+- `/cash-reports`
+  `income`, `expense`, `summary`
+
+## 7. Role va route nazorati
+
+Frontend route guardlar:
+
+- login qilinmagan user protected route'ga kira olmaydi
+- `meta.roles` bo'yicha role filter ishlaydi
+- menyu ham role asosida filtrlab ko'rsatiladi
+
+Amaliy taqsimot:
+
+- `admin`
+  hamma sahifalar
+- `cashier`
+  operational sahifalar
+- `moderator`
+  reference/katalog sahifalar
+
+## 8. Mock va real backend
+
+Default holat:
+
+- `VITE_USE_MOCKS=false`
+
+Shuning uchun frontend real backend bilan ishlaydi.
+
+Mock kerak bo'lsa:
+
+- `.env` ichida `VITE_USE_MOCKS=true`
+- yoki `localStorage.vehicle_mock_mode=true`
+
+Mock layer fayli:
+
+- `src/mock/backend.ts`
+
+Eslatma:
+
+- `src/composables/backend.ts` va `src/composables/services.ts` compatibility qoldiqlari sifatida turibdi
+- amaldagi ishchi data layer `src/api/*` va `src/mock/backend.ts`
+
+## 9. O'qish tartibi
+
+Frontendni tez tushunish uchun:
+
+1. `src/router/index.ts`
+2. `src/stores/auth.ts`
+3. `src/api/http.ts`
+4. `src/api/services.ts`
+5. `src/composables/paymentCompat.ts`
+6. `src/views/Wizard.vue`
+7. `src/views/Payments.vue`
+8. `src/views/Dashboard.vue`
+
+## 10. Qo'shimcha docs
+
+Project-level docs:
+
+- `/home/javohir/projects/vehicle-front/docs`
+- `/home/javohir/projects/vehicle-api/docs`
+
+Backendni tushunish uchun ayniqsa muhim:
+
+- `/home/javohir/projects/vehicle-api/README.md`
+- `/home/javohir/projects/vehicle-api/docs/PAYMENT_FLOW.md`
+- `/home/javohir/projects/vehicle-api/docs/CASH_FLOW.md`
+- `/home/javohir/projects/vehicle-api/docs/LEGACY_COLUMNS.md`

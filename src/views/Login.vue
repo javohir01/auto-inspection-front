@@ -77,7 +77,12 @@ async function submit() {
       </div>
 
       <p class="mt-6 text-center text-xs text-slate-500">
-        Mock rejimida kirish: <span class="text-slate-300">998901112233</span> · parol: <span class="text-slate-300">password</span>
+        <template v-if="auth.isMock">
+          Mock rejimida kirish: <span class="text-slate-300">998901112233</span> · parol: <span class="text-slate-300">password</span>
+        </template>
+        <template v-else>
+          Test kirish: <span class="text-slate-300">+998901112233</span> · parol: <span class="text-slate-300">password</span>
+        </template>
       </p>
     </div>
   </div>

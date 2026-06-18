@@ -7,6 +7,7 @@ import type {
   FuelType,
   DocumentType,
   VehicleModel,
+  PaymentMethod,
   User,
   Counterparty,
   Vehicle,
@@ -53,6 +54,7 @@ export const districtsApi = resource<District>('districts');
 export const fuelTypesApi = resource<FuelType>('fuel-types');
 export const documentTypesApi = resource<DocumentType>('document-types');
 export const vehicleModelsApi = resource<VehicleModel>('vehicle-models');
+export const paymentMethodsApi = resource<PaymentMethod>('payment-methods');
 export const usersApi = resource<User>('users');
 export const counterpartiesApi = resource<Counterparty>('counterparties');
 export const vehiclesApi = resource<Vehicle>('vehicles');
