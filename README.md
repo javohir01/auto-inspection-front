@@ -70,6 +70,7 @@ src/
 - **PrimeVue 4** — mavzu `@primeuix/themes/aura`. Komponentlar `main.ts` da global ro‘yxatdan o‘tkazilgan.
 - **Dark mode** — `index.html` da `<html class="dark">` (doim yoqilgan).
 - **API manzili** — `VITE_API_URL` (default `/api/v1`). Dev’da Vite proxy, Docker’da nginx proxy.
+- **Mock rejim** — `.env` da `VITE_USE_MOCKS=true` qo‘yiladi.
 - **Token** — `localStorage` kaliti `vehicle_token`.
 - **Yo‘l aliasi** — `@` → `src/` (`vite.config.ts` + `tsconfig.app.json`).
 
@@ -86,4 +87,4 @@ Menyu va sahifalar `auth.user.role` ga qarab cheklanadi (`router/index.ts` `meta
 | **cashier** | Dashboard, Yangi ko‘rik, Hujjatlar, To‘lovlar, Mijozlar, Avtomobillar, Xarajatlar |
 | **moderator** | Dashboard, Mijozlar, Avtomobillar, Ma’lumotnomalar |
 
-Demo: admin `+998901112233`, kassir `+998901112244`, moderator `+998901112255` — parol `password`.
+Mock demo: admin `998901112233` — parol `password`.

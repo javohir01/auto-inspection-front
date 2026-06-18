@@ -47,10 +47,24 @@ interface MockDb {
 
 const DB_KEY = 'vehicle_mock_db';
 const MODE_KEY = 'vehicle_mock_mode';
+const MOCK_ADMIN_PHONE = '998901112233';
+const MOCK_ADMIN_PASSWORD = 'password';
+const MOCK_ADMIN_USER: MockUserRecord = {
+  id: 1,
+  branch_id: 1,
+  name: 'Demo Admin',
+  phone: `+${MOCK_ADMIN_PHONE}`,
+  role: 'admin',
+  password: MOCK_ADMIN_PASSWORD,
+};
 
 const today = '2026-06-17';
 
 function clone<T>(value: T): T {
+  if (value === undefined) {
+    return value;
+  }
+
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
@@ -101,8 +115,9 @@ function seedDb(): MockDb {
   ];
 
   const users: MockUserRecord[] = [
-    { id: 1, branch_id: 1, name: 'Demo Kassir', phone: '+998901112244', role: 'cashier', password: 'password' },
-    { id: 2, branch_id: 1, name: 'Demo Moderator', phone: '+998901112255', role: 'moderator', password: 'password' },
+    MOCK_ADMIN_USER,
+    { id: 2, branch_id: 1, name: 'Demo Kassir', phone: '+998901112244', role: 'cashier', password: 'password' },
+    { id: 3, branch_id: 1, name: 'Demo Moderator', phone: '+998901112255', role: 'moderator', password: 'password' },
   ];
 
   const counterparties: Counterparty[] = [
@@ -254,11 +269,38 @@ function readDb(): MockDb {
     writeDb(db);
     return db;
   }
-  return JSON.parse(raw) as MockDb;
+  const db = JSON.parse(raw) as MockDb;
+  ensureMockAdminUser(db);
+  return db;
 }
 
 function writeDb(db: MockDb): void {
   window.localStorage.setItem(DB_KEY, JSON.stringify(db));
+}
+
+function normalizePhone(value: string): string {
+  return value.replace(/\D/g, '');
+}
+
+function isMockAdminCredentials(phone: string, password: string): boolean {
+  return normalizePhone(phone) === MOCK_ADMIN_PHONE && password === MOCK_ADMIN_PASSWORD;
+}
+
+function ensureMockAdminUser(db: MockDb): void {
+  const existing = db.users.find((user) => normalizePhone(user.phone) === MOCK_ADMIN_PHONE);
+  if (existing) {
+    Object.assign(existing, {
+      ...MOCK_ADMIN_USER,
+      id: existing.id,
+      created_at: existing.created_at,
+      updated_at: existing.updated_at,
+    });
+    writeDb(db);
+    return;
+  }
+
+  db.users.unshift({ ...MOCK_ADMIN_USER, id: nextId(db.users) });
+  writeDb(db);
 }
 
 function nextId(items: Array<{ id: number }>): number {
@@ -449,7 +491,9 @@ function resourceItems<T>(db: MockDb, path: ResourceName): T[] {
 }
 
 export function isMockModeEnabled(): boolean {
-  return import.meta.env.VITE_USE_MOCK === 'true' || window.localStorage.getItem(MODE_KEY) === 'true';
+  return import.meta.env.VITE_USE_MOCKS === 'true'
+    || import.meta.env.VITE_USE_MOCK === 'true'
+    || window.localStorage.getItem(MODE_KEY) === 'true';
 }
 
 export function enableMockMode(): void {
@@ -487,7 +531,9 @@ export async function createMockAdminUser(payload: { name: string; phone: string
 
 export async function mockLogin(phone: string, password: string): Promise<{ token: string; user: User }> {
   const db = readDb();
-  const user = db.users.find((item) => item.phone === phone && item.password === password);
+  const user = isMockAdminCredentials(phone, password)
+    ? db.users.find((item) => normalizePhone(item.phone) === MOCK_ADMIN_PHONE)
+    : null;
   if (!user) {
     throw new Error('Telefon yoki parol noto‘g‘ri');
   }

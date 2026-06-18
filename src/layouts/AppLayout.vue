@@ -19,16 +19,16 @@ interface NavItem {
 
 // `roles` undefined => visible to everyone. Otherwise filtered by the user's role.
 const allNav: NavItem[] = [
-  { label: 'Boshqaruv paneli', icon: 'pi pi-th-large', to: '/' },
-  { label: 'Yangi ko‘rik', icon: 'pi pi-plus-circle', to: '/wizard', roles: ['admin', 'cashier'] },
-  { label: 'Ko‘rik hujjatlari', icon: 'pi pi-file', to: '/documents', roles: ['admin', 'cashier'] },
+  { label: 'Bosh sahifa', icon: 'pi pi-th-large', to: '/' },
+  { label: 'Hujjatlar', icon: 'pi pi-file', to: '/documents', roles: ['admin', 'cashier'] },
   { label: 'To‘lovlar', icon: 'pi pi-credit-card', to: '/payments', roles: ['admin', 'cashier'] },
+  { label: 'Xarajatlar', icon: 'pi pi-wallet', to: '/expenses', roles: ['admin', 'cashier'] },
+  { label: 'Ma’lumotnomalar', icon: 'pi pi-database', to: '/catalogs', roles: ['admin', 'moderator'] },
+  { label: 'Yangi ko‘rik', icon: 'pi pi-plus-circle', to: '/wizard', roles: ['admin', 'cashier'] },
   { label: 'Mijozlar', icon: 'pi pi-users', to: '/counterparties', roles: ['admin', 'cashier', 'moderator'] },
   { label: 'Avtomobillar', icon: 'pi pi-car', to: '/vehicles', roles: ['admin', 'cashier', 'moderator'] },
-  { label: 'Xarajatlar', icon: 'pi pi-wallet', to: '/expenses', roles: ['admin', 'cashier'] },
   { label: 'Filiallar', icon: 'pi pi-building', to: '/branches', roles: ['admin'] },
   { label: 'Xodimlar', icon: 'pi pi-id-card', to: '/users', roles: ['admin'] },
-  { label: 'Ma’lumotnomalar', icon: 'pi pi-database', to: '/catalogs', roles: ['admin', 'moderator'] },
 ];
 
 const nav = computed(() => {

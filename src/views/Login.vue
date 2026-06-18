@@ -9,8 +9,7 @@ const router = useRouter();
 const auth = useAuthStore();
 const { isDark, toggleTheme } = useTheme();
 
-const demoName = ref('Frontend Admin');
-const phone = ref('+998901112233');
+const phone = ref('998901112233');
 const password = ref('password');
 const error = ref('');
 
@@ -24,15 +23,6 @@ async function submit() {
   }
 }
 
-async function createAdminAndLogin() {
-  error.value = '';
-  try {
-    await auth.createAdmin(demoName.value, phone.value, password.value);
-    router.push({ name: 'Dashboard' });
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : extractError(e);
-  }
-}
 </script>
 
 <template>
@@ -58,12 +48,8 @@ async function createAdminAndLogin() {
       <div class="rounded-2xl border border-slate-800 bg-[#0e1320] p-7 shadow-xl">
         <form class="space-y-5" @submit.prevent="submit">
           <div>
-            <label class="mb-1.5 block text-sm font-medium text-slate-300">Demo admin nomi</label>
-            <InputText v-model="demoName" class="w-full" placeholder="Frontend Admin" />
-          </div>
-          <div>
             <label class="mb-1.5 block text-sm font-medium text-slate-300">Telefon raqami</label>
-            <InputText v-model="phone" class="w-full" placeholder="+998901112233" autocomplete="username" />
+            <InputText v-model="phone" class="w-full" placeholder="998901112233" autocomplete="username" />
           </div>
           <div>
             <label class="mb-1.5 block text-sm font-medium text-slate-300">Parol</label>
@@ -87,21 +73,11 @@ async function createAdminAndLogin() {
             class="w-full"
             :loading="auth.loading"
           />
-          <Button
-            type="button"
-            label="Admin yaratish va kirish"
-            icon="pi pi-user-plus"
-            severity="secondary"
-            outlined
-            class="w-full"
-            :loading="auth.loading"
-            @click="createAdminAndLogin"
-          />
         </form>
       </div>
 
       <p class="mt-6 text-center text-xs text-slate-500">
-        Demo rejimida admin user shu formadan yaratiladi. Tayyor userlar: Kassir <span class="text-slate-300">+998901112244</span> · Moderator <span class="text-slate-300">+998901112255</span> · parol: <span class="text-slate-300">password</span>
+        Mock rejimida kirish: <span class="text-slate-300">998901112233</span> · parol: <span class="text-slate-300">password</span>
       </p>
     </div>
   </div>
