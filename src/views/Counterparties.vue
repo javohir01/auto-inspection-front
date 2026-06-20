@@ -60,10 +60,10 @@ function doSearch() {
         <Column field="full_name" header="F.I.O" />
         <Column field="phone" header="Telefon" />
         <Column header="Viloyat">
-          <template #body="{ data }">{{ data.region?.name ?? '—' }}</template>
+          <template #body="{ data }">{{ data.region?.name_uz ?? '—' }}</template>
         </Column>
         <Column header="Tuman">
-          <template #body="{ data }">{{ data.district?.name ?? '—' }}</template>
+          <template #body="{ data }">{{ data.district?.name_uz ?? '—' }}</template>
         </Column>
         <Column field="basis_type" header="Turi" />
         <Column header="Amallar" style="width: 8rem">
@@ -93,11 +93,11 @@ function doSearch() {
         </div>
         <div>
           <label class="mb-1.5 block text-sm font-medium text-slate-300">Viloyat</label>
-          <Select v-model="form.region_id" :options="regions" option-label="name" option-value="id" class="w-full" placeholder="Tanlang" />
+          <Select v-model="form.region_id" :options="regions" option-label="name_uz" option-value="id" class="w-full" placeholder="Tanlang" />
         </div>
         <div>
           <label class="mb-1.5 block text-sm font-medium text-slate-300">Tuman</label>
-          <Select v-model="form.district_id" :options="filteredDistricts" option-label="name" option-value="id" class="w-full" placeholder="Tanlang" :disabled="!form.region_id" />
+          <Select v-model="form.district_id" :options="filteredDistricts" option-label="name_uz" option-value="id" class="w-full" placeholder="Tanlang" :disabled="!form.region_id" />
         </div>
         <div class="col-span-2">
           <label class="mb-1.5 block text-sm font-medium text-slate-300">Manzil</label>

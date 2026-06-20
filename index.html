@@ -5,6 +5,26 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Avto Ko‘rik</title>
+    <!-- Apply the persisted theme before first paint so a saved "light" choice
+         doesn't flash dark while the JS bundle loads. Mirrors useTheme.ts. -->
+    <script>
+      (function () {
+        try {
+          var key = 'vehicle-front-theme';
+          var saved = localStorage.getItem(key);
+          var mode =
+            saved === 'light' || saved === 'dark'
+              ? saved
+              : window.matchMedia('(prefers-color-scheme: dark)').matches
+                ? 'dark'
+                : 'light';
+          var root = document.documentElement;
+          root.classList.toggle('dark', mode === 'dark');
+          root.classList.toggle('light', mode === 'light');
+          root.style.colorScheme = mode;
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="app"></div>

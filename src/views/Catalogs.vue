@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import SimpleCatalog from '@/components/SimpleCatalog.vue';
+import RegionsCatalog from '@/components/RegionsCatalog.vue';
 import DistrictsCatalog from '@/components/DistrictsCatalog.vue';
-import { regionsApi, fuelTypesApi, documentTypesApi, vehicleModelsApi } from '@/api/services';
+import { fuelTypesApi, documentTypesApi, vehicleModelsApi } from '@/api/services';
 </script>
 
 <template>
@@ -21,7 +22,7 @@ import { regionsApi, fuelTypesApi, documentTypesApi, vehicleModelsApi } from '@/
           <Tab value="models">Avto rusumlari</Tab>
         </TabList>
         <TabPanels>
-          <TabPanel value="regions"><SimpleCatalog :api="regionsApi" label="Viloyat" /></TabPanel>
+          <TabPanel value="regions"><RegionsCatalog /></TabPanel>
           <TabPanel value="districts"><DistrictsCatalog /></TabPanel>
           <TabPanel value="fuel"><SimpleCatalog :api="fuelTypesApi" label="Yoqilg‘i turi" /></TabPanel>
           <TabPanel value="doctypes"><SimpleCatalog :api="documentTypesApi" label="Hujjat turi" /></TabPanel>

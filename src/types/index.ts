@@ -12,7 +12,11 @@ export interface Branch {
 
 export interface Region {
   id: number;
-  name: string;
+  name_uz: string;
+  name_ru: string;
+  name_en: string;
+  name_cyrl: string;
+  soato: number;
   districts?: District[];
 }
 
@@ -20,7 +24,11 @@ export interface District {
   id: number;
   region_id: number;
   region?: Region;
-  name: string;
+  name_uz: string;
+  name_ru: string;
+  name_en: string;
+  name_cyrl: string;
+  soato: number;
 }
 
 export interface FuelType {

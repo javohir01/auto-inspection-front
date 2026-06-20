@@ -246,11 +246,11 @@ async function submit() {
           </div>
           <div>
             <label class="mb-1.5 block text-sm font-medium text-slate-300">Viloyat</label>
-            <Select v-model="newCp.region_id" :options="regions" option-label="name" option-value="id" class="w-full" placeholder="Tanlang" />
+            <Select v-model="newCp.region_id" :options="regions" option-label="name_uz" option-value="id" class="w-full" placeholder="Tanlang" />
           </div>
           <div>
             <label class="mb-1.5 block text-sm font-medium text-slate-300">Tuman</label>
-            <Select v-model="newCp.district_id" :options="cpDistricts" option-label="name" option-value="id" class="w-full" placeholder="Tanlang" :disabled="!newCp.region_id" />
+            <Select v-model="newCp.district_id" :options="cpDistricts" option-label="name_uz" option-value="id" class="w-full" placeholder="Tanlang" :disabled="!newCp.region_id" />
           </div>
           <div class="col-span-2">
             <label class="mb-1.5 block text-sm font-medium text-slate-300">Manzil</label>

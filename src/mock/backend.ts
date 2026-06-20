@@ -86,16 +86,16 @@ function seedDb(): MockDb {
   ];
 
   const regions: Region[] = [
-    { id: 1, name: 'Toshkent shahri' },
-    { id: 2, name: 'Toshkent вилояти' },
-    { id: 3, name: 'Samarqand вилояти' },
+    { id: 22, name_uz: 'Toshkent shahri', name_ru: 'город Ташкент', name_en: 'Tashkent City', name_cyrl: 'Тошкент шаҳри', soato: 1726 },
+    { id: 17, name_uz: 'Toshkent viloyati', name_ru: 'Ташкентская область', name_en: 'Tashkent Region', name_cyrl: 'Тошкент вилояти', soato: 1727 },
+    { id: 10, name_uz: 'Samarqand viloyati', name_ru: 'Самаркандская область', name_en: 'Samarkand Region', name_cyrl: 'Самарқанд вилояти', soato: 1718 },
   ];
 
   const districts: District[] = [
-    { id: 1, region_id: 1, name: 'Yunusobod tumani' },
-    { id: 2, region_id: 1, name: 'Chilonzor tumani' },
-    { id: 3, region_id: 2, name: 'Zangiota tumani' },
-    { id: 4, region_id: 3, name: 'Samarqand tumani' },
+    { id: 198, region_id: 22, name_uz: 'Yunusobod tumani', name_ru: 'Юнусабадский район', name_en: 'Yunusobod district', name_cyrl: 'Юнусобод тумани', soato: 1726266 },
+    { id: 204, region_id: 22, name_uz: 'Chilonzor tumani', name_ru: 'Чиланзарский район', name_en: 'Chilanzar district', name_cyrl: 'Чилонзор тумани', soato: 1726294 },
+    { id: 1701, region_id: 17, name_uz: 'Zangiota tumani', name_ru: 'Зангиатинский район', name_en: 'Zangiota district', name_cyrl: 'Зангиота тумани', soato: 1727235 },
+    { id: 1001, region_id: 10, name_uz: 'Samarqand tumani', name_ru: 'Самаркандский район', name_en: 'Samarkand district', name_cyrl: 'Самарқанд тумани', soato: 1718236 },
   ];
 
   const fuelTypes: FuelType[] = [
@@ -135,8 +135,8 @@ function seedDb(): MockDb {
       id: 1,
       full_name: 'Anvar Ergashev',
       phone: '+998901234567',
-      region_id: 1,
-      district_id: 1,
+      region_id: 22,
+      district_id: 198,
       address: 'Yunusobod, 12-mavze',
       basis_type: 'Jismoniy shaxs',
     },
@@ -144,8 +144,8 @@ function seedDb(): MockDb {
       id: 2,
       full_name: 'Samarqand Trans MCHJ',
       phone: '+998971112233',
-      region_id: 3,
-      district_id: 4,
+      region_id: 10,
+      district_id: 1001,
       address: 'Samarqand tumani, Industrial hudud',
       basis_type: 'Yuridik shaxs',
     },
