@@ -50,7 +50,7 @@ async function handleSave() {
 
 <template>
   <div class="space-y-5">
-    <div class="flex items-center justify-between">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <h1 class="text-2xl font-semibold tracking-tight">Xarajatlar</h1>
         <p class="text-sm text-slate-400">Filiallar bo‘yicha xarajatlar</p>
@@ -85,7 +85,7 @@ async function handleSave() {
     </div>
 
     <Dialog v-model:visible="dialogVisible" modal :header="isEdit ? 'Xarajatni tahrirlash' : 'Yangi xarajat'" class="w-full max-w-lg">
-      <div class="grid grid-cols-2 gap-4 pt-2">
+      <div class="grid grid-cols-1 gap-4 pt-2 sm:grid-cols-2">
         <div>
           <label class="mb-1.5 block text-sm font-medium text-slate-300">Filial</label>
           <Select v-model="form.branch_id" :options="branches" option-label="name" option-value="id" class="w-full" placeholder="Tanlang" />
@@ -94,7 +94,7 @@ async function handleSave() {
           <label class="mb-1.5 block text-sm font-medium text-slate-300">Sana</label>
           <DatePicker v-model="form.date" class="w-full" date-format="yy-mm-dd" />
         </div>
-        <div class="col-span-2">
+        <div class="sm:col-span-2">
           <label class="mb-1.5 block text-sm font-medium text-slate-300">Asos</label>
           <InputText v-model="form.basis" class="w-full" />
         </div>
@@ -110,7 +110,7 @@ async function handleSave() {
           <label class="mb-1.5 block text-sm font-medium text-slate-300">Xodim</label>
           <Select v-model="form.employee_id" :options="employees" option-label="name" option-value="id" class="w-full" show-clear placeholder="Tanlanmagan" />
         </div>
-        <div class="col-span-2">
+        <div class="sm:col-span-2">
           <label class="mb-1.5 block text-sm font-medium text-slate-300">Izoh</label>
           <Textarea v-model="form.description" class="w-full" rows="2" />
         </div>

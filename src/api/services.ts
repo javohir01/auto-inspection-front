@@ -61,3 +61,33 @@ export const vehiclesApi = resource<Vehicle>('vehicles');
 export const inspectionDocumentsApi = resource<InspectionDocument>('inspection-documents');
 export const paymentsApi = resource<Payment>('payments');
 export const expensesApi = resource<Expense>('expenses');
+
+export interface OnlinePaymentLink {
+  provider: 'payme' | 'click';
+  url: string;
+  amount_due: string;
+  inspection_document_id: number;
+  test_mode: boolean;
+}
+
+export interface OnlinePaymentResult {
+  provider: 'payme' | 'click';
+  paid: boolean;
+  payment_status: string;
+  amount: string;
+  inspection_document_id: number;
+}
+
+// Online payment (Payme / Click).
+export const onlinePaymentApi = {
+  // Generate a hosted-checkout link for a document.
+  link: (inspectionDocumentId: number, provider: 'payme' | 'click', returnUrl?: string) =>
+    http
+      .post(`/inspection-documents/${inspectionDocumentId}/payment-link`, { provider, return_url: returnUrl })
+      .then((r) => r.data.data as OnlinePaymentLink),
+  // Simulate a successful payment (test mode only) — completes the flow locally.
+  simulate: (inspectionDocumentId: number, provider: 'payme' | 'click') =>
+    http
+      .post(`/inspection-documents/${inspectionDocumentId}/simulate-payment`, { provider })
+      .then((r) => r.data.data as OnlinePaymentResult),
+};

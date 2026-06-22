@@ -36,7 +36,7 @@ function openCreate() {
 
 <template>
   <div class="space-y-5">
-    <div class="flex items-center justify-between">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <h1 class="text-2xl font-semibold tracking-tight">Avtomobillar</h1>
         <p class="text-sm text-slate-400">Ro‘yxatdan o‘tgan transport vositalari</p>
@@ -70,8 +70,8 @@ function openCreate() {
     </div>
 
     <Dialog v-model:visible="dialogVisible" modal :header="isEdit ? 'Avtomobilni tahrirlash' : 'Yangi avtomobil'" class="w-full max-w-lg">
-      <div class="grid grid-cols-2 gap-4 pt-2">
-        <div class="col-span-2">
+      <div class="grid grid-cols-1 gap-4 pt-2 sm:grid-cols-2">
+        <div class="sm:col-span-2">
           <label class="mb-1.5 block text-sm font-medium text-slate-300">Egasi (mijoz)</label>
           <Select v-model="form.counterparty_id" :options="counterparties" option-label="full_name" option-value="id" class="w-full" filter placeholder="Tanlang" />
         </div>
@@ -99,7 +99,7 @@ function openCreate() {
           <label class="mb-1.5 block text-sm font-medium text-slate-300">Shassi raqami</label>
           <InputText v-model="form.chassis_number" class="w-full" />
         </div>
-        <div class="col-span-2">
+        <div class="sm:col-span-2">
           <label class="mb-1.5 block text-sm font-medium text-slate-300">Dvigatel raqami</label>
           <InputText v-model="form.engine_number" class="w-full" />
         </div>

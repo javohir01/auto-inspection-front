@@ -212,11 +212,13 @@ async function submit() {
             <i v-if="step > i + 1" class="pi pi-check" />
             <span v-else>{{ i + 1 }}</span>
           </div>
-          <span class="mt-1 text-xs" :class="step === i + 1 ? 'text-emerald-400' : 'text-slate-500'">{{ s }}</span>
+          <span class="mt-1 hidden text-xs sm:block" :class="step === i + 1 ? 'text-emerald-400' : 'text-slate-500'">{{ s }}</span>
         </div>
         <div v-if="i < steps.length - 1" class="mx-2 h-0.5 flex-1" :class="step > i + 1 ? 'bg-emerald-500' : 'bg-slate-700'" />
       </template>
     </div>
+    <!-- Current step name (mobile, where per-step labels are hidden) -->
+    <p class="-mt-2 text-center text-sm font-medium text-emerald-400 sm:hidden">{{ step }}/{{ steps.length }} · {{ steps[step - 1] }}</p>
 
     <div class="rounded-2xl border border-slate-800 bg-[#0e1320] p-6">
       <!-- Step 1: Counterparty -->
@@ -231,8 +233,8 @@ async function submit() {
           <Select v-model="selectedCounterpartyId" :options="counterparties" option-label="full_name" option-value="id" class="w-full" filter placeholder="Qidirish..." />
         </div>
 
-        <div v-else class="grid grid-cols-2 gap-4">
-          <div class="col-span-2">
+        <div v-else class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div class="sm:col-span-2">
             <label class="mb-1.5 block text-sm font-medium text-slate-300">F.I.O</label>
             <InputText v-model="newCp.full_name" class="w-full" />
           </div>
@@ -252,7 +254,7 @@ async function submit() {
             <label class="mb-1.5 block text-sm font-medium text-slate-300">Tuman</label>
             <Select v-model="newCp.district_id" :options="cpDistricts" option-label="name_uz" option-value="id" class="w-full" placeholder="Tanlang" :disabled="!newCp.region_id" />
           </div>
-          <div class="col-span-2">
+          <div class="sm:col-span-2">
             <label class="mb-1.5 block text-sm font-medium text-slate-300">Manzil</label>
             <Textarea v-model="newCp.address" class="w-full" rows="2" />
           </div>
@@ -278,7 +280,7 @@ async function submit() {
           <p v-if="!vehicles.length" class="mt-2 text-sm text-slate-500">Bu mijozda avtomobil yo‘q. "Yangi avtomobil"ni tanlang.</p>
         </div>
 
-        <div v-else class="grid grid-cols-2 gap-4">
+        <div v-else class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label class="mb-1.5 block text-sm font-medium text-slate-300">Davlat raqami</label>
             <InputText v-model="newV.license_plate" class="w-full" placeholder="01A123BC" />
@@ -307,7 +309,7 @@ async function submit() {
       </div>
 
       <!-- Step 3: Document -->
-      <div v-else-if="step === 3" class="grid grid-cols-2 gap-4">
+      <div v-else-if="step === 3" class="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label class="mb-1.5 block text-sm font-medium text-slate-300">Hujjat №</label>
           <InputText v-model="doc.doc_number" class="w-full" />
@@ -341,7 +343,7 @@ async function submit() {
           <label for="addpay" class="text-sm text-slate-300">To‘lov qo‘shish</label>
         </div>
 
-        <div v-if="addPayment" class="grid grid-cols-2 gap-4">
+        <div v-if="addPayment" class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label class="mb-1.5 block text-sm font-medium text-slate-300">Naqd</label>
             <InputNumber v-model="pay.cash_amount" class="w-full" :min="0" />
@@ -358,7 +360,7 @@ async function submit() {
             <label class="mb-1.5 block text-sm font-medium text-slate-300">Z-hisobot ID</label>
             <InputText v-model="pay.z_report_id" class="w-full" />
           </div>
-          <div class="col-span-2 rounded-xl bg-slate-800/50 p-3 text-center">
+          <div class="rounded-xl bg-slate-800/50 p-3 text-center sm:col-span-2">
             <span class="text-sm text-slate-400">Jami: </span>
             <span class="text-lg font-semibold text-emerald-400">{{ money(payTotal) }} so‘m</span>
           </div>

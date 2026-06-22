@@ -79,7 +79,7 @@ onMounted(async () => {
 
 <template>
   <div class="space-y-6">
-    <div class="flex items-center justify-between">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <h1 class="text-2xl font-semibold tracking-tight">Boshqaruv paneli</h1>
         <p class="text-sm text-slate-400">{{ isAdmin ? 'Tizim bo‘yicha umumiy ko‘rsatkichlar' : today }}</p>

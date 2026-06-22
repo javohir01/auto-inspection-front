@@ -77,7 +77,7 @@ async function handleSave() {
 
 <template>
   <div class="space-y-5">
-    <div class="flex items-center justify-between">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <h1 class="text-2xl font-semibold tracking-tight">To‘lovlar</h1>
         <p class="text-sm text-slate-400">Qabul qilingan to‘lovlar</p>
@@ -116,7 +116,7 @@ async function handleSave() {
     </div>
 
     <Dialog v-model:visible="dialogVisible" modal :header="isEdit ? 'To‘lovni tahrirlash' : 'Yangi to‘lov'" class="w-full max-w-lg">
-      <div class="grid grid-cols-2 gap-4 pt-2">
+      <div class="grid grid-cols-1 gap-4 pt-2 sm:grid-cols-2">
         <div>
           <label class="mb-1.5 block text-sm font-medium text-slate-300">Filial</label>
           <Select v-model="form.branch_id" :options="branches" option-label="name" option-value="id" class="w-full" placeholder="Tanlang" />
@@ -141,7 +141,7 @@ async function handleSave() {
           <label class="mb-1.5 block text-sm font-medium text-slate-300">Plastik</label>
           <InputNumber v-model="form.plastic_amount" class="w-full" :min="0" />
         </div>
-        <div class="col-span-2 rounded-xl bg-slate-800/50 p-3 text-center">
+        <div class="rounded-xl bg-slate-800/50 p-3 text-center sm:col-span-2">
           <span class="text-sm text-slate-400">Jami summa: </span>
           <span class="text-lg font-semibold text-emerald-400">{{ money(computedTotal) }} so‘m</span>
         </div>

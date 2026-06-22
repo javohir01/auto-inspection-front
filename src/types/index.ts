@@ -111,6 +111,8 @@ export interface InspectionDocument {
   employee_id: number;
   employee?: User;
   status: 'pending' | 'completed';
+  payment_status?: 'unpaid' | 'partial' | 'paid' | 'refunded';
+  total_amount?: string;
 }
 
 export interface Payment {

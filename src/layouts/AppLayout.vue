@@ -7,8 +7,19 @@ import type { Role } from '@/types';
 
 const router = useRouter();
 const auth = useAuthStore();
-const sidebarOpen = ref(true);
+// Two independent states: desktop collapses the rail to icons, mobile slides
+// the full sidebar in as an off-canvas drawer over the content.
+const desktopCollapsed = ref(false);
+const mobileMenuOpen = ref(false);
 const { isDark, toggleTheme } = useTheme();
+
+function toggleSidebar() {
+  if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
+    desktopCollapsed.value = !desktopCollapsed.value;
+  } else {
+    mobileMenuOpen.value = !mobileMenuOpen.value;
+  }
+}
 
 interface NavItem {
   label: string;
@@ -58,16 +69,26 @@ async function logout() {
 
 <template>
   <div class="app-shell flex min-h-screen bg-[#0b0f19] text-slate-100">
-    <!-- Sidebar -->
+    <!-- Mobile backdrop (only while the drawer is open on small screens) -->
+    <div
+      v-if="mobileMenuOpen"
+      class="fixed inset-0 z-40 bg-black/50 lg:hidden"
+      @click="mobileMenuOpen = false"
+    />
+
+    <!-- Sidebar: off-canvas drawer below lg, static collapsible rail at lg+ -->
     <aside
-      class="app-sidebar flex flex-col border-r border-slate-800 bg-[#0e1320] transition-all duration-200"
-      :class="sidebarOpen ? 'w-64' : 'w-20'"
+      class="app-sidebar fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-slate-800 bg-[#0e1320] transition-transform duration-200 lg:static lg:z-auto lg:translate-x-0 lg:transition-[width]"
+      :class="[
+        mobileMenuOpen ? 'translate-x-0' : '-translate-x-full',
+        desktopCollapsed ? 'lg:w-20' : 'lg:w-64',
+      ]"
     >
       <div class="flex h-16 items-center gap-3 border-b border-slate-800 px-5">
         <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-sky-500">
           <i class="pi pi-car" />
         </div>
-        <span v-if="sidebarOpen" class="text-lg font-semibold tracking-tight">Avto Ko‘rik</span>
+        <span class="text-lg font-semibold tracking-tight" :class="{ 'lg:hidden': desktopCollapsed }">Avto Ko‘rik</span>
       </div>
 
       <nav class="flex-1 space-y-1 overflow-y-auto px-3 py-4">
@@ -78,9 +99,10 @@ async function logout() {
           class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-400 transition hover:bg-slate-800/70 hover:text-white"
           active-class="!bg-indigo-500/15 !text-indigo-300"
           exact-active-class="!bg-indigo-500/15 !text-indigo-300"
+          @click="mobileMenuOpen = false"
         >
           <i :class="item.icon" class="text-base" />
-          <span v-if="sidebarOpen">{{ item.label }}</span>
+          <span :class="{ 'lg:hidden': desktopCollapsed }">{{ item.label }}</span>
         </RouterLink>
       </nav>
 
@@ -90,18 +112,20 @@ async function logout() {
           @click="logout"
         >
           <i class="pi pi-sign-out text-base" />
-          <span v-if="sidebarOpen">Chiqish</span>
+          <span :class="{ 'lg:hidden': desktopCollapsed }">Chiqish</span>
         </button>
       </div>
     </aside>
 
     <!-- Main column -->
     <div class="flex min-w-0 flex-1 flex-col">
-      <header class="app-header flex h-16 items-center justify-between border-b border-slate-800 bg-[#0e1320]/80 px-6 backdrop-blur">
+      <header class="app-header flex h-16 items-center justify-between gap-3 border-b border-slate-800 bg-[#0e1320]/80 px-4 backdrop-blur sm:px-6">
         <div class="flex items-center gap-2">
           <button
             class="app-icon-button flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white"
-            @click="sidebarOpen = !sidebarOpen"
+            type="button"
+            aria-label="Menyu"
+            @click="toggleSidebar"
           >
             <i class="pi pi-bars" />
           </button>
@@ -115,17 +139,17 @@ async function logout() {
           </button>
         </div>
 
-        <div class="flex items-center gap-3">
-          <Tag v-if="auth.isMock" value="Mock data" severity="contrast" />
-          <div class="text-right">
-            <div class="text-sm font-semibold leading-tight">{{ auth.user?.name }}</div>
-            <div class="text-xs text-slate-400">{{ roleLabel }}<span v-if="auth.user?.branch"> · {{ auth.user.branch.name }}</span></div>
+        <div class="flex min-w-0 items-center gap-3">
+          <span v-if="auth.isMock" class="hidden sm:inline-flex"><Tag value="Mock data" severity="contrast" /></span>
+          <div class="hidden min-w-0 text-right sm:block">
+            <div class="truncate text-sm font-semibold leading-tight">{{ auth.user?.name }}</div>
+            <div class="truncate text-xs text-slate-400">{{ roleLabel }}<span v-if="auth.user?.branch"> · {{ auth.user.branch.name }}</span></div>
           </div>
-          <Avatar :label="initials" shape="circle" class="!bg-indigo-500 !text-white" />
+          <Avatar :label="initials" shape="circle" class="shrink-0 !bg-indigo-500 !text-white" />
         </div>
       </header>
 
-      <main class="flex-1 overflow-auto p-6">
+      <main class="flex-1 overflow-auto p-4 sm:p-6">
         <router-view />
       </main>
     </div>

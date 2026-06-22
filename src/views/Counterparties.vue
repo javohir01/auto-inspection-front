@@ -38,7 +38,7 @@ function doSearch() {
 
 <template>
   <div class="space-y-5">
-    <div class="flex items-center justify-between">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <h1 class="text-2xl font-semibold tracking-tight">Mijozlar</h1>
         <p class="text-sm text-slate-400">Kontragentlar ro‘yxati</p>
@@ -78,8 +78,8 @@ function doSearch() {
     </div>
 
     <Dialog v-model:visible="dialogVisible" modal :header="isEdit ? 'Mijozni tahrirlash' : 'Yangi mijoz'" class="w-full max-w-lg">
-      <div class="grid grid-cols-2 gap-4 pt-2">
-        <div class="col-span-2">
+      <div class="grid grid-cols-1 gap-4 pt-2 sm:grid-cols-2">
+        <div class="sm:col-span-2">
           <label class="mb-1.5 block text-sm font-medium text-slate-300">F.I.O</label>
           <InputText v-model="form.full_name" class="w-full" />
         </div>
@@ -99,7 +99,7 @@ function doSearch() {
           <label class="mb-1.5 block text-sm font-medium text-slate-300">Tuman</label>
           <Select v-model="form.district_id" :options="filteredDistricts" option-label="name_uz" option-value="id" class="w-full" placeholder="Tanlang" :disabled="!form.region_id" />
         </div>
-        <div class="col-span-2">
+        <div class="sm:col-span-2">
           <label class="mb-1.5 block text-sm font-medium text-slate-300">Manzil</label>
           <Textarea v-model="form.address" class="w-full" rows="2" />
         </div>

@@ -41,6 +41,38 @@ body {
   transition: background-color 0.15s ease;
 }
 
+/* ---------------------------------------------------------------------------
+   Responsive safeguards (apply across every view)
+   --------------------------------------------------------------------------- */
+
+/* Tables: keep wide column sets readable by scrolling the table horizontally
+   inside its own card instead of pushing the whole page sideways. The
+   paginator stays put because it lives outside the scroll container. */
+.p-datatable-table-container,
+.p-datatable-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.p-datatable-table,
+.p-datatable table {
+  min-width: 38rem;
+}
+
+/* Dialogs: let tall forms scroll internally instead of overflowing off-screen. */
+.p-dialog {
+  max-height: 92vh;
+}
+.p-dialog .p-dialog-content {
+  overflow-y: auto;
+}
+/* On phones cap the width to the viewport (kept in a media query so the
+   per-dialog max-w-* utilities still win on larger screens). */
+@media (max-width: 640px) {
+  .p-dialog {
+    max-width: 95vw;
+  }
+}
+
 html.light body {
   background-color: #f8fafc;
   color: #0f172a;
