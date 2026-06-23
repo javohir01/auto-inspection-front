@@ -1,17 +1,27 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
-import { useRouter } from 'vue-router';
+import { onBeforeUnmount, onMounted, ref, computed, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { useToast } from 'primevue/usetoast';
+import { cashBalanceApi } from '@/api/services';
 import { useAuthStore } from '@/stores/auth';
 import { useTheme } from '@/composables/useTheme';
-import type { Role } from '@/types';
+import { extractError } from '@/composables/useCrud';
+import type { Role, CashBalance } from '@/types';
 
 const router = useRouter();
+const route = useRoute();
 const auth = useAuthStore();
+const toast = useToast();
 // Two independent states: desktop collapses the rail to icons, mobile slides
 // the full sidebar in as an off-canvas drawer over the content.
 const desktopCollapsed = ref(false);
 const mobileMenuOpen = ref(false);
 const { isDark, toggleTheme } = useTheme();
+const cashBalance = ref<CashBalance | null>(null);
+const balanceLoading = ref(false);
+const safeDialogVisible = ref(false);
+const safeSaving = ref(false);
+const safeForm = ref({ amount: 0, description: '' });
 
 function toggleSidebar() {
   if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
@@ -34,12 +44,12 @@ const allNav: NavItem[] = [
   { label: 'Hujjatlar', icon: 'pi pi-file', to: '/documents', roles: ['admin', 'cashier'] },
   { label: 'To‘lovlar', icon: 'pi pi-credit-card', to: '/payments', roles: ['admin', 'cashier'] },
   { label: 'Xarajatlar', icon: 'pi pi-wallet', to: '/expenses', roles: ['admin', 'cashier'] },
-  { label: 'Ma’lumotnomalar', icon: 'pi pi-database', to: '/catalogs', roles: ['admin', 'moderator'] },
-  { label: 'Yangi ko‘rik', icon: 'pi pi-plus-circle', to: '/wizard', roles: ['admin', 'cashier'] },
+  { label: 'Yangi hujjat', icon: 'pi pi-plus-circle', to: '/wizard', roles: ['admin', 'cashier'] },
   { label: 'Mijozlar', icon: 'pi pi-users', to: '/counterparties', roles: ['admin', 'cashier', 'moderator'] },
   { label: 'Avtomobillar', icon: 'pi pi-car', to: '/vehicles', roles: ['admin', 'cashier', 'moderator'] },
   { label: 'Filiallar', icon: 'pi pi-building', to: '/branches', roles: ['admin'] },
   { label: 'Xodimlar', icon: 'pi pi-id-card', to: '/users', roles: ['admin'] },
+  { label: 'Ma’lumotnomalar', icon: 'pi pi-database', to: '/catalogs', roles: ['admin', 'moderator'] },
 ];
 
 const nav = computed(() => {
@@ -61,10 +71,65 @@ const roleLabel = computed(() => {
   }
 });
 
+function money(v: string | number | null | undefined): string {
+  return new Intl.NumberFormat('uz-UZ').format(Number(v || 0));
+}
+
+async function refreshBalance() {
+  if (!auth.user || !['admin', 'cashier'].includes(auth.user.role)) return;
+
+  balanceLoading.value = true;
+  try {
+    cashBalance.value = await cashBalanceApi.summary({
+      branch_id: auth.user.branch_id,
+      employee_id: auth.user.id,
+    });
+  } catch {
+    cashBalance.value = null;
+  } finally {
+    balanceLoading.value = false;
+  }
+}
+
+function openSafeDeposit() {
+  safeForm.value = { amount: Number(cashBalance.value?.balance || 0), description: '' };
+  safeDialogVisible.value = true;
+}
+
+async function saveSafeDeposit() {
+  safeSaving.value = true;
+  try {
+    const result = await cashBalanceApi.safeDeposit({
+      branch_id: auth.user?.branch_id ?? null,
+      amount: Number(safeForm.value.amount || 0),
+      description: safeForm.value.description || null,
+    });
+    cashBalance.value = result.summary;
+    safeDialogVisible.value = false;
+    window.dispatchEvent(new Event('cash-balance:refresh'));
+    toast.add({ severity: 'success', summary: 'Saqlandi', detail: 'Mablag‘ seyfga topshirildi', life: 3000 });
+  } catch (e) {
+    toast.add({ severity: 'error', summary: 'Xatolik', detail: extractError(e), life: 5000 });
+  } finally {
+    safeSaving.value = false;
+  }
+}
+
 async function logout() {
   await auth.logout();
   router.push({ name: 'Login' });
 }
+
+onMounted(() => {
+  window.addEventListener('cash-balance:refresh', refreshBalance);
+  refreshBalance();
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('cash-balance:refresh', refreshBalance);
+});
+
+watch(() => route.fullPath, () => refreshBalance());
 </script>
 
 <template>
@@ -140,6 +205,24 @@ async function logout() {
         </div>
 
         <div class="flex min-w-0 items-center gap-3">
+          <div v-if="cashBalance" class="hidden items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-1.5 text-xs md:flex">
+            <span class="text-slate-400">Kunlik</span>
+            <span class="font-semibold text-emerald-300">{{ money(cashBalance.balance) }}</span>
+            <span class="hidden text-slate-600 xl:inline">|</span>
+            <span class="hidden text-slate-400 xl:inline">Naqd {{ money(cashBalance.cash_income) }}</span>
+            <span class="hidden text-slate-400 xl:inline">Terminal {{ money(cashBalance.terminal_income) }}</span>
+            <span class="hidden text-slate-400 xl:inline">Seyf {{ money(cashBalance.safe_balance) }}</span>
+          </div>
+          <Button
+            v-if="cashBalance"
+            icon="pi pi-lock"
+            text
+            rounded
+            size="small"
+            :loading="balanceLoading"
+            v-tooltip.bottom="'Seyfga topshirish'"
+            @click="openSafeDeposit"
+          />
           <span v-if="auth.isMock" class="hidden sm:inline-flex"><Tag value="Mock data" severity="contrast" /></span>
           <div class="hidden min-w-0 text-right sm:block">
             <div class="truncate text-sm font-semibold leading-tight">{{ auth.user?.name }}</div>
@@ -153,5 +236,25 @@ async function logout() {
         <router-view />
       </main>
     </div>
+
+    <Dialog v-model:visible="safeDialogVisible" modal header="Seyfga topshirish" class="w-full max-w-md">
+      <div class="space-y-4 pt-2">
+        <div class="rounded-lg border border-slate-800 bg-slate-900/60 p-3 text-sm text-slate-300">
+          Kunlik qoldiq: <span class="font-semibold text-emerald-300">{{ money(cashBalance?.balance) }} so‘m</span>
+        </div>
+        <div>
+          <label class="mb-1.5 block text-sm font-medium text-slate-300">Summa</label>
+          <InputNumber v-model="safeForm.amount" class="w-full" :min="1" />
+        </div>
+        <div>
+          <label class="mb-1.5 block text-sm font-medium text-slate-300">Izoh</label>
+          <Textarea v-model="safeForm.description" class="w-full" rows="2" />
+        </div>
+      </div>
+      <template #footer>
+        <Button label="Bekor qilish" text @click="safeDialogVisible = false" />
+        <Button label="Topshirish" icon="pi pi-check" :loading="safeSaving" @click="saveSafeDeposit" />
+      </template>
+    </Dialog>
   </div>
 </template>

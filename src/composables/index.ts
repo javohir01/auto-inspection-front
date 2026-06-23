@@ -85,6 +85,7 @@ export interface Vehicle {
   vehicle_model_id: number;
   vehicle_model?: VehicleModel;
   license_plate: string;
+  vehicle_type: 'Yengil' | 'Yuk' | 'Tirkama' | 'Mototsikl' | 'Avtobus' | 'Mikroavtobus';
   manufacture_year: number;
   body_number: string | null;
   chassis_number: string | null;

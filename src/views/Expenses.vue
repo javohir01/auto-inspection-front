@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { expensesApi, branchesApi, usersApi } from '@/api/services';
 import { useCrud } from '@/composables/useCrud';
 import { useAuthStore } from '@/stores/auth';
@@ -11,7 +11,16 @@ const { items, loading, saving, dialogVisible, isEdit, form } = crud;
 
 const branches = ref<Branch[]>([]);
 const employees = ref<User[]>([]);
-const paymentMethods = ['Naqd', 'Plastik', 'Bank o‘tkazmasi'];
+const expenseOptions = [
+  'Yo‘l xarajati',
+  'Ofis xarajati',
+  'Kommunal to‘lov',
+  'Uskuna ta’miri',
+  'Kanselyariya',
+  'Boshqa',
+];
+const customBasis = ref('');
+const isCustomExpense = computed(() => form.value.basis === 'Boshqa');
 
 function money(v: string | number): string {
   return new Intl.NumberFormat('uz-UZ').format(Number(v));
@@ -31,20 +40,38 @@ onMounted(async () => {
 });
 
 function openCreate() {
+  customBasis.value = '';
   crud.openCreate({
     branch_id: auth.user?.branch_id ?? null,
     employee_id: auth.user?.id ?? null,
     date: new Date(),
-    basis: '',
+    basis: expenseOptions[0],
     payment_method: 'Naqd',
     amount: 0,
     description: '',
   });
 }
 
+function openEditExpense(expense: Expense) {
+  customBasis.value = expenseOptions.includes(expense.basis) ? '' : expense.basis;
+  crud.openEdit({
+    ...expense,
+    basis: expenseOptions.includes(expense.basis) ? expense.basis : 'Boshqa',
+  });
+}
+
 async function handleSave() {
   form.value.date = toIso(form.value.date);
-  await crud.save();
+  form.value.employee_id = form.value.employee_id ?? auth.user?.id ?? null;
+  form.value.payment_method = 'Naqd';
+  if (isCustomExpense.value) {
+    form.value.basis = customBasis.value.trim();
+  }
+
+  const saved = await crud.save();
+  if (saved) {
+    window.dispatchEvent(new Event('cash-balance:refresh'));
+  }
 }
 </script>
 
@@ -66,7 +93,6 @@ async function handleSave() {
           <template #body="{ data }">{{ data.branch?.name ?? '—' }}</template>
         </Column>
         <Column field="basis" header="Asos" />
-        <Column field="payment_method" header="To‘lov turi" />
         <Column header="Summa">
           <template #body="{ data }">{{ money(data.amount) }} so‘m</template>
         </Column>
@@ -76,7 +102,7 @@ async function handleSave() {
         <Column header="Amallar" style="width: 8rem">
           <template #body="{ data }">
             <div class="flex gap-2">
-              <Button icon="pi pi-pencil" text rounded size="small" @click="crud.openEdit(data)" />
+              <Button icon="pi pi-pencil" text rounded size="small" @click="openEditExpense(data)" />
               <Button icon="pi pi-trash" text rounded severity="danger" size="small" @click="crud.remove(data)" />
             </div>
           </template>
@@ -96,11 +122,11 @@ async function handleSave() {
         </div>
         <div class="sm:col-span-2">
           <label class="mb-1.5 block text-sm font-medium text-slate-300">Asos</label>
-          <InputText v-model="form.basis" class="w-full" />
+          <Select v-model="form.basis" :options="expenseOptions" class="w-full" />
         </div>
-        <div>
-          <label class="mb-1.5 block text-sm font-medium text-slate-300">To‘lov turi</label>
-          <Select v-model="form.payment_method" :options="paymentMethods" class="w-full" />
+        <div v-if="isCustomExpense" class="sm:col-span-2">
+          <label class="mb-1.5 block text-sm font-medium text-slate-300">Qo‘lda kiriting</label>
+          <InputText v-model="customBasis" class="w-full" />
         </div>
         <div>
           <label class="mb-1.5 block text-sm font-medium text-slate-300">Summa</label>

@@ -59,6 +59,7 @@ export function buildPaymentPayload(input: {
   inspectionDocumentId?: number | null;
   receiptType?: 'INV' | 'FTK' | null;
   zReportId?: string | null;
+  description?: string | null;
   paymentMethods: PaymentMethod[];
 }): Record<string, unknown> {
   const totalAmount = input.cashAmount + input.plasticAmount;
@@ -94,6 +95,7 @@ export function buildPaymentPayload(input: {
     plastic_amount: input.plasticAmount,
     receipt_type: input.receiptType ?? 'FTK',
     z_report_id: input.zReportId || null,
+    description: input.description || null,
     inspection_document_id: input.inspectionDocumentId ?? null,
     lines: lines.length ? lines : undefined,
     allocations: allocations.length ? allocations : undefined,

@@ -146,12 +146,43 @@ html.light .bg-slate-800\/50 {
   background-color: rgb(226 232 240 / 0.75) !important;
 }
 
+html.light .bg-slate-900\/70,
+html.light .bg-slate-900\/60 {
+  background-color: rgb(248 250 252 / 0.92) !important;
+}
+
 html.light .border-slate-700 {
   border-color: #cbd5e1 !important;
 }
 
 html.light .bg-slate-700 {
   background-color: #cbd5e1 !important;
+}
+
+html.light .text-emerald-300,
+html.light .text-emerald-400 {
+  color: #047857 !important;
+}
+
+html.light .text-rose-400 {
+  color: #be123c !important;
+}
+
+html.light .text-amber-400 {
+  color: #b45309 !important;
+}
+
+html.light .text-indigo-300,
+html.light .\!text-indigo-300 {
+  color: #4f46e5 !important;
+}
+
+html.light .bg-emerald-950\/20 {
+  background-color: rgb(236 253 245 / 0.9) !important;
+}
+
+html.light .border-emerald-900\/60 {
+  border-color: #a7f3d0 !important;
 }
 
 html.light * {

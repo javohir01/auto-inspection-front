@@ -5,6 +5,7 @@ import type {
   DocumentType,
   Expense,
   FuelType,
+  GeneratedDocument,
   InspectionDocument,
   Payment,
   PaymentMethod,
@@ -12,6 +13,7 @@ import type {
   User,
   Vehicle,
   VehicleModel,
+  CashBalance,
 } from '@/types';
 
 type ResourceName =
@@ -26,6 +28,7 @@ type ResourceName =
   | 'counterparties'
   | 'vehicles'
   | 'inspection-documents'
+  | 'generated-documents'
   | 'payments'
   | 'expenses';
 
@@ -43,9 +46,20 @@ interface MockDb {
   counterparties: Counterparty[];
   vehicles: Vehicle[];
   inspectionDocuments: InspectionDocument[];
+  generatedDocuments: GeneratedDocument[];
   payments: Payment[];
   expenses: Expense[];
+  safeDeposits: MockSafeDeposit[];
   sessions: Record<string, number>;
+}
+
+interface MockSafeDeposit {
+  id: number;
+  branch_id: number;
+  employee_id: number | null;
+  date: string;
+  amount: string | number;
+  description: string | null;
 }
 
 const DB_KEY = 'vehicle_mock_db';
@@ -106,8 +120,11 @@ function seedDb(): MockDb {
   ];
 
   const documentTypes: DocumentType[] = [
-    { id: 1, name: 'Birlamchi ko‘rik' },
-    { id: 2, name: 'Takroriy ko‘rik' },
+    { id: 1, name: 'TEXOSMOTR' },
+    { id: 2, name: 'GAZ AKT' },
+    { id: 3, name: 'TEXOSMOTR+GAZ' },
+    { id: 4, name: 'SUG‘URTA' },
+    { id: 5, name: 'TONIROVKA' },
   ];
 
   const vehicleModels: VehicleModel[] = [
@@ -121,7 +138,9 @@ function seedDb(): MockDb {
     { id: 1, code: 'CASH', name: 'Naqd', type: 'cash', is_fiscal: true, is_active: true },
     { id: 2, code: 'UZCARD', name: 'Uzcard', type: 'card', is_fiscal: true, is_active: true },
     { id: 3, code: 'HUMO', name: 'Humo', type: 'card', is_fiscal: true, is_active: true },
-    { id: 4, code: 'BANK', name: 'Bank', type: 'bank', is_fiscal: false, is_active: true },
+    { id: 4, code: 'BANK', name: 'Bank', type: 'bank', is_fiscal: false, is_active: false },
+    { id: 5, code: 'PAYME', name: 'Payme', type: 'online', is_fiscal: true, is_active: false },
+    { id: 6, code: 'CLICK', name: 'Click', type: 'online', is_fiscal: true, is_active: false },
   ];
 
   const users: MockUserRecord[] = [
@@ -157,6 +176,7 @@ function seedDb(): MockDb {
       counterparty_id: 1,
       vehicle_model_id: 1,
       license_plate: '01A123BC',
+      vehicle_type: 'Yengil',
       manufacture_year: 2022,
       body_number: 'BODY-001',
       chassis_number: 'CHS-001',
@@ -168,6 +188,7 @@ function seedDb(): MockDb {
       counterparty_id: 2,
       vehicle_model_id: 4,
       license_plate: '30B456CD',
+      vehicle_type: 'Yuk',
       manufacture_year: 2021,
       body_number: 'BODY-002',
       chassis_number: 'CHS-002',
@@ -189,6 +210,18 @@ function seedDb(): MockDb {
       document_type_id: 1,
       employee_id: 1,
       status: 'completed',
+      gas_cylinder: {
+        id: 1,
+        inspection_document_id: 1,
+        type: 'metan',
+        manufacturer_country: 'Uzbekistan',
+        cylinder_number: 'GB-123456',
+        volume_liters: '80.00',
+        weight_kg: '72.50',
+        manufacture_year: 2024,
+        working_pressure: '200.00',
+        test_pressure: '300.00',
+      },
     },
     {
       id: 2,
@@ -284,8 +317,10 @@ function seedDb(): MockDb {
     counterparties,
     vehicles,
     inspectionDocuments,
+    generatedDocuments: [],
     payments,
     expenses,
+    safeDeposits: [],
     sessions: {},
   };
 }
@@ -337,13 +372,33 @@ function defaultPaymentMethods(): PaymentMethod[] {
     { id: 1, code: 'CASH', name: 'Naqd', type: 'cash', is_fiscal: true, is_active: true },
     { id: 2, code: 'UZCARD', name: 'Uzcard', type: 'card', is_fiscal: true, is_active: true },
     { id: 3, code: 'HUMO', name: 'Humo', type: 'card', is_fiscal: true, is_active: true },
-    { id: 4, code: 'BANK', name: 'Bank', type: 'bank', is_fiscal: false, is_active: true },
+    { id: 4, code: 'BANK', name: 'Bank', type: 'bank', is_fiscal: false, is_active: false },
+    { id: 5, code: 'PAYME', name: 'Payme', type: 'online', is_fiscal: true, is_active: false },
+    { id: 6, code: 'CLICK', name: 'Click', type: 'online', is_fiscal: true, is_active: false },
   ];
 }
 
 function ensureMockCompatibility(db: MockDb): void {
   if (!Array.isArray(db.paymentMethods) || !db.paymentMethods.length) {
     db.paymentMethods = defaultPaymentMethods();
+  }
+
+  if (!Array.isArray(db.generatedDocuments)) {
+    db.generatedDocuments = [];
+  }
+
+  if (!Array.isArray(db.safeDeposits)) {
+    db.safeDeposits = [];
+  }
+
+  for (const name of ['TEXOSMOTR', 'GAZ AKT', 'TEXOSMOTR+GAZ', 'SUG‘URTA', 'TONIROVKA']) {
+    if (!db.documentTypes.some((type) => type.name === name)) {
+      db.documentTypes.push({ id: nextId(db.documentTypes), name });
+    }
+  }
+
+  for (const vehicle of db.vehicles) {
+    vehicle.vehicle_type ??= 'Yengil';
   }
 
   db.payments = db.payments.map((payment) => normalizePaymentPayload(payment as Record<string, any>, db, payment));
@@ -367,6 +422,7 @@ function dbKeyFor(path: ResourceName): keyof MockDb {
     case 'counterparties': return 'counterparties';
     case 'vehicles': return 'vehicles';
     case 'inspection-documents': return 'inspectionDocuments';
+    case 'generated-documents': return 'generatedDocuments';
     case 'payments': return 'payments';
     case 'expenses': return 'expenses';
   }
@@ -430,6 +486,16 @@ function hydrate<T>(path: ResourceName, item: T, db: MockDb): T {
         fuel_type: db.fuelTypes.find((fuel) => fuel.id === document.fuel_type_id),
         document_type: db.documentTypes.find((type) => type.id === document.document_type_id),
         employee: withNull(db.users.find((user) => user.id === document.employee_id)) ? mapUser(db.users.find((user) => user.id === document.employee_id)!, db) : undefined,
+        generated_documents: db.generatedDocuments
+          .filter((generated) => generated.inspection_document_id === document.id)
+          .map((generated) => hydrate('generated-documents', generated, db) as GeneratedDocument),
+      } as T;
+    }
+    case 'generated-documents': {
+      const generated = item as GeneratedDocument;
+      return {
+        ...generated,
+        document_type: db.documentTypes.find((type) => type.id === generated.document_type_id),
       } as T;
     }
     case 'payments': {
@@ -490,10 +556,28 @@ function filterItems<T extends { [key: string]: any }>(path: ResourceName, items
       return false;
     }
 
+    if (path === 'vehicles' && params.license_plate) {
+      const plate = String(params.license_plate).toLowerCase();
+      if (!String(item.license_plate ?? '').toLowerCase().includes(plate)) return false;
+    }
+
     if (path === 'inspection-documents' && params.license_plate) {
       const plate = String(params.license_plate).toLowerCase();
       const currentPlate = String(item.vehicle?.license_plate ?? '').toLowerCase();
       if (!currentPlate.includes(plate)) return false;
+    }
+
+    if (path === 'inspection-documents' && params.gas_cylinder_number) {
+      const number = String(params.gas_cylinder_number);
+      if (String(item.gas_cylinder?.cylinder_number ?? '') !== number) return false;
+    }
+
+    if (path === 'generated-documents' && params.inspection_document_id && Number(item.inspection_document_id) !== Number(params.inspection_document_id)) {
+      return false;
+    }
+
+    if (path === 'generated-documents' && params.document_type_id && Number(item.document_type_id) !== Number(params.document_type_id)) {
+      return false;
     }
 
     if ((path === 'payments' || path === 'expenses' || path === 'inspection-documents') && params.start_date) {
@@ -534,6 +618,7 @@ function stripRelations(path: ResourceName, payload: Record<string, any>): Recor
   delete clean.document_type;
   delete clean.employee;
   delete clean.inspection_document;
+  delete clean.generated_documents;
   delete clean.payment_method;
 
   if (Array.isArray(clean.lines)) {
@@ -634,7 +719,7 @@ function normalizePaymentPayload(
     date: clean.date,
     paid_at: clean.paid_at ?? null,
     payment_type: clean.payment_type ?? existing?.payment_type ?? 'regular',
-    status: clean.status ?? existing?.status ?? 'draft',
+    status: clean.status && clean.status !== 'draft' ? clean.status : existing?.status ?? 'posted',
     total_amount: totalAmount,
     cash_amount: cashAmount,
     plastic_amount: plasticAmount,
@@ -732,7 +817,8 @@ export async function mockFetchMe(token: string | null): Promise<User> {
 export async function mockList<T>(path: ResourceName, params?: Record<string, unknown>): Promise<T[]> {
   const db = readDb();
   const hydrated = resourceItems<any>(db, path).map((item) => hydrate(path, item, db));
-  return delay(filterItems(path, hydrated, params));
+  const filtered = filterItems(path, hydrated, params);
+  return delay(path === 'payment-methods' ? filtered.filter((method) => method.is_active && ['cash', 'card'].includes(method.type)) : filtered);
 }
 
 export async function mockGet<T>(path: ResourceName, id: number): Promise<T> {
@@ -797,4 +883,76 @@ export async function mockRemove(path: ResourceName, id: number): Promise<void> 
   (db[key] as Array<Record<string, any>>) = nextItems;
   writeDb(db);
   return delay(undefined);
+}
+
+export async function mockCashBalanceSummary(params?: { branch_id?: number | null; employee_id?: number | null; date?: string | null }): Promise<CashBalance> {
+  const db = readDb();
+  const branchId = Number(params?.branch_id ?? 1);
+  const employeeId = params?.employee_id ? Number(params.employee_id) : null;
+  const date = String(params?.date ?? new Date().toISOString().slice(0, 10));
+  const payments = db.payments.filter((payment) => {
+    if (payment.branch_id !== branchId) return false;
+    if (employeeId && payment.employee_id && payment.employee_id !== employeeId) return false;
+    return String(payment.date).slice(0, 10) === date && (payment.status ?? 'posted') !== 'cancelled';
+  });
+  const expenses = db.expenses.filter((expense) => {
+    if (expense.branch_id !== branchId) return false;
+    if (employeeId && expense.employee_id && expense.employee_id !== employeeId) return false;
+    return String(expense.date).slice(0, 10) === date;
+  });
+  const deposits = db.safeDeposits.filter((deposit) => {
+    if (deposit.branch_id !== branchId) return false;
+    if (employeeId && deposit.employee_id && deposit.employee_id !== employeeId) return false;
+    return String(deposit.date).slice(0, 10) === date;
+  });
+
+  const cashIncome = payments.reduce((sum, payment) => sum + Number(payment.cash_amount || 0), 0);
+  const terminalIncome = payments.reduce((sum, payment) => {
+    const lineTerminal = payment.lines
+      ?.filter((line) => db.paymentMethods.find((method) => method.id === line.payment_method_id)?.type === 'card')
+      .reduce((lineSum, line) => lineSum + Number(line.amount || 0), 0);
+    return sum + Number(lineTerminal ?? payment.plastic_amount ?? 0);
+  }, 0);
+  const expenseTotal = expenses.reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+  const safeDepositTotal = deposits.reduce((sum, deposit) => sum + Number(deposit.amount || 0), 0);
+  const safeBalance = db.safeDeposits
+    .filter((deposit) => deposit.branch_id === branchId)
+    .reduce((sum, deposit) => sum + Number(deposit.amount || 0), 0);
+  const incomeTotal = cashIncome + terminalIncome;
+  const balance = incomeTotal - expenseTotal - safeDepositTotal;
+
+  return delay({
+    branch_id: branchId,
+    employee_id: employeeId,
+    date,
+    cash_income: cashIncome.toFixed(2),
+    terminal_income: terminalIncome.toFixed(2),
+    other_income: '0.00',
+    income_total: incomeTotal.toFixed(2),
+    expense_total: expenseTotal.toFixed(2),
+    safe_deposit_total: safeDepositTotal.toFixed(2),
+    refund_total: '0.00',
+    balance: balance.toFixed(2),
+    safe_balance: safeBalance.toFixed(2),
+  });
+}
+
+export async function mockSafeDeposit(payload: { branch_id?: number | null; amount: number; date?: string | null; description?: string | null }): Promise<{ transaction_id: number; summary: CashBalance }> {
+  const db = readDb();
+  const branchId = Number(payload.branch_id ?? 1);
+  const id = nextId(db.safeDeposits);
+  db.safeDeposits.unshift({
+    id,
+    branch_id: branchId,
+    employee_id: 1,
+    date: String(payload.date ?? new Date().toISOString().slice(0, 10)),
+    amount: Number(payload.amount || 0),
+    description: payload.description || null,
+  });
+  writeDb(db);
+
+  return delay({
+    transaction_id: id,
+    summary: await mockCashBalanceSummary({ branch_id: branchId, date: payload.date ?? null }),
+  });
 }

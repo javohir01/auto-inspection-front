@@ -4,9 +4,10 @@ import { useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
 import {
   counterpartiesApi, vehiclesApi, inspectionDocumentsApi, paymentsApi,
-  regionsApi, districtsApi, vehicleModelsApi, fuelTypesApi, documentTypesApi, branchesApi, paymentMethodsApi,
+  regionsApi, districtsApi, vehicleModelsApi, fuelTypesApi, documentTypesApi, branchesApi, paymentMethodsApi, generatedDocumentsApi,
 } from '@/api/services';
 import { buildPaymentPayload } from '@/composables/paymentCompat';
+import { calculateInspectionPaymentAmount, hasGasInspection } from '@/composables/inspectionPricing';
 import { useAuthStore } from '@/stores/auth';
 import { extractError } from '@/composables/useCrud';
 import type { Region, District, VehicleModel, FuelType, DocumentType, Branch, Counterparty, Vehicle, PaymentMethod } from '@/types';
@@ -29,6 +30,15 @@ const branches = ref<Branch[]>([]);
 const paymentMethods = ref<PaymentMethod[]>([]);
 const counterparties = ref<Counterparty[]>([]);
 const vehicles = ref<Vehicle[]>([]);
+const vehicleTypes = [
+  { label: 'Yengil', value: 'Yengil' },
+  { label: 'Yuk', value: 'Yuk' },
+  { label: 'Tirkama', value: 'Tirkama' },
+  { label: 'Mototsikl', value: 'Mototsikl' },
+  { label: 'Avtobus', value: 'Avtobus' },
+  { label: 'Mikroavtobus', value: 'Mikroavtobus' },
+];
+const documentTypeChoices = computed(() => documentTypes.value);
 
 // Step 1 — counterparty
 const cpMode = ref<'existing' | 'new'>('existing');
@@ -42,6 +52,7 @@ const selectedVehicleId = ref<number | null>(null);
 const newV = reactive({
   vehicle_model_id: null as number | null,
   license_plate: '',
+  vehicle_type: 'Yengil',
   manufacture_year: new Date().getFullYear(),
   body_number: '',
   chassis_number: '',
@@ -59,15 +70,76 @@ const doc = reactive({
   fuel_type_id: null as number | null,
   status: 'completed',
 });
+const selectedDocumentTypeIds = ref<number[]>([]);
+const selectedDocumentTypes = computed(() => documentTypes.value.filter((type) => selectedDocumentTypeIds.value.includes(type.id)));
+const selectedDocumentKinds = computed(() => selectedDocumentTypes.value.map((type) => `${type.code ?? ''} ${type.name ?? ''}`.toUpperCase()));
+const hasRegularInspectionDocument = computed(() => selectedDocumentKinds.value.some((kind) => kind.includes('TEXOSMOTR') || kind.includes('GAZ')));
+const isSimpleDocumentSelection = computed(() => selectedDocumentTypeIds.value.length > 0 && !hasRegularInspectionDocument.value);
+const showActNumber = computed(() => !isSimpleDocumentSelection.value);
+const showFuelType = computed(() => !isSimpleDocumentSelection.value);
+const selectedVehicleType = computed(() => {
+  if (vMode.value === 'existing') {
+    return vehicles.value.find((vehicle) => vehicle.id === selectedVehicleId.value)?.vehicle_type ?? null;
+  }
+
+  return newV.vehicle_type;
+});
+const showGasBalloonFields = computed(() => selectedDocumentTypes.value.some(hasGasInspection));
+const gasCylinderTypes = [
+  { label: 'Metan', value: 'metan' },
+  { label: 'Propan', value: 'propan' },
+];
+const gasCylinder = reactive({
+  type: 'metan' as 'metan' | 'propan',
+  manufacturer_country: '',
+  cylinder_number: '',
+  volume_liters: null as number | null,
+  weight_kg: null as number | null,
+  manufacture_year: new Date().getFullYear(),
+  working_pressure: null as number | null,
+  test_pressure: null as number | null,
+});
 
 // Step 4 — payment
 const addPayment = ref(true);
-const pay = reactive({ cash_amount: 0, plastic_amount: 0, receipt_type: 'FTK', z_report_id: '' });
+const pay = reactive({ cash_amount: 0, plastic_amount: 0, receipt_type: 'FTK', z_report_id: '', description: '' });
 const payTotal = computed(() => Number(pay.cash_amount || 0) + Number(pay.plastic_amount || 0));
+const expectedPayment = computed(() => calculateInspectionPaymentAmount({
+  documentTypes: selectedDocumentTypes.value,
+  vehicleType: selectedVehicleType.value,
+  gasCylinderCount: showGasBalloonFields.value ? 1 : 0,
+}));
+const paymentMismatch = computed(() => addPayment.value && expectedPayment.value.amount > 0 && payTotal.value !== expectedPayment.value.amount);
+const gasBalloonDescription = computed(() => {
+  if (!expectedPayment.value.hasGasInspection) return '';
+
+  return [
+    `Gaz ballon turi: ${gasCylinder.type}`,
+    `Gaz ballon raqami: ${gasCylinder.cylinder_number}`,
+    gasCylinder.manufacturer_country ? `Ishlab chiqargan davlat: ${gasCylinder.manufacturer_country}` : '',
+    gasCylinder.volume_liters ? `Hajmi: ${gasCylinder.volume_liters} litr` : '',
+    gasCylinder.weight_kg ? `Og‘irligi: ${gasCylinder.weight_kg} kg` : '',
+    gasCylinder.manufacture_year ? `Ishlab chiqarilgan yil: ${gasCylinder.manufacture_year}` : '',
+    gasCylinder.working_pressure ? `Ishchi bosimi: ${gasCylinder.working_pressure}` : '',
+    gasCylinder.test_pressure ? `Sinov bosimi: ${gasCylinder.test_pressure}` : '',
+  ].filter(Boolean).join('\n');
+});
+const paymentDescription = computed(() => {
+  const parts = [
+    gasBalloonDescription.value,
+    paymentMismatch.value && pay.description ? `To‘lov farqi izohi: ${pay.description}` : pay.description,
+  ].filter(Boolean);
+
+  return parts.length ? parts.join('\n') : null;
+});
+const lastAutoPaymentAmount = ref(0);
 const receiptTypes = [
   { label: 'Hisob-faktura (INV)', value: 'INV' },
   { label: 'Fiskal chek (FTK)', value: 'FTK' },
 ];
+const modelDialogVisible = ref(false);
+const newModelName = ref('');
+const modelSaving = ref(false);
 
 function money(v: number): string {
   return new Intl.NumberFormat('uz-UZ').format(v);
@@ -83,6 +155,7 @@ onMounted(async () => {
       regionsApi.list(), districtsApi.list(), vehicleModelsApi.list(),
       fuelTypesApi.list(), documentTypesApi.list(), branchesApi.list(), counterpartiesApi.list(), paymentMethodsApi.list().catch(() => []),
     ]);
+  selectDefaultDocumentType();
 });
 
 // New counterparty has no existing vehicles, so force vehicle creation.
@@ -102,6 +175,22 @@ watch(selectedVehicleId, (id) => {
   if (v) doc.fuel_type_id = v.current_fuel_type_id;
 });
 watch(() => newV.current_fuel_type_id, (id) => { if (vMode.value === 'new' && id) doc.fuel_type_id = id; });
+watch(() => doc.doc_number, (value) => {
+  if (isSimpleDocumentSelection.value) doc.act_number = value;
+});
+watch(expectedPayment, (pricing) => {
+  if (!addPayment.value || pricing.amount <= 0) {
+    lastAutoPaymentAmount.value = pricing.amount;
+    return;
+  }
+
+  if (payTotal.value === 0 || payTotal.value === lastAutoPaymentAmount.value) {
+    pay.cash_amount = pricing.amount;
+    pay.plastic_amount = 0;
+  }
+
+  lastAutoPaymentAmount.value = pricing.amount;
+}, { immediate: true });
 
 function validateStep(): string | null {
   if (step.value === 1) {
@@ -110,12 +199,77 @@ function validateStep(): string | null {
   }
   if (step.value === 2) {
     if (vMode.value === 'existing' && !selectedVehicleId.value) return 'Avtomobilni tanlang';
-    if (vMode.value === 'new' && (!newV.license_plate || !newV.vehicle_model_id || !newV.current_fuel_type_id)) return 'Avtomobil ma’lumotlarini to‘ldiring';
+    if (vMode.value === 'new' && (!newV.license_plate || !newV.vehicle_model_id || !newV.vehicle_type || !newV.current_fuel_type_id)) return 'Avtomobil ma’lumotlarini to‘ldiring';
   }
   if (step.value === 3) {
-    if (!doc.doc_number || !doc.act_number || !doc.branch_id || !doc.document_type_id || !doc.fuel_type_id) return 'Hujjat ma’lumotlarini to‘ldiring';
+    if (isSimpleDocumentSelection.value) {
+      doc.act_number = doc.act_number || doc.doc_number;
+      doc.fuel_type_id = doc.fuel_type_id || selectedVehicleFuelTypeId.value;
+    }
+    if (!doc.doc_number || (showActNumber.value && !doc.act_number) || !doc.branch_id || !selectedDocumentTypeIds.value.length || !doc.fuel_type_id) return 'Hujjat ma’lumotlarini to‘ldiring';
+    if (showGasBalloonFields.value && (
+      !gasCylinder.type ||
+      !gasCylinder.manufacturer_country ||
+      !gasCylinder.cylinder_number ||
+      !gasCylinder.volume_liters ||
+      !gasCylinder.weight_kg ||
+      !gasCylinder.manufacture_year ||
+      !gasCylinder.working_pressure ||
+      !gasCylinder.test_pressure
+    )) return 'Gaz ballon ma’lumotlarini to‘ldiring';
+  }
+  if (step.value === 4 && addPayment.value && paymentMismatch.value && !pay.description.trim()) {
+    return 'To‘lov summasi belgilangan narxdan farq qiladi. Izoh kiriting';
   }
   return null;
+}
+
+const selectedVehicleFuelTypeId = computed(() => {
+  if (vMode.value === 'existing') {
+    return vehicles.value.find((vehicle) => vehicle.id === selectedVehicleId.value)?.current_fuel_type_id ?? null;
+  }
+
+  return newV.current_fuel_type_id;
+});
+
+function selectDefaultDocumentType(): void {
+  if (!documentTypeChoices.value.length) return;
+
+  if (!selectedDocumentTypeIds.value.some((id) => documentTypeChoices.value.some((type) => type.id === id))) {
+    selectedDocumentTypeIds.value = [documentTypeChoices.value[0].id];
+  }
+
+  doc.document_type_id = selectedDocumentTypeIds.value[0] ?? null;
+}
+
+function toggleDocumentType(id: number): void {
+  selectedDocumentTypeIds.value = selectedDocumentTypeIds.value.includes(id)
+    ? selectedDocumentTypeIds.value.filter((current) => current !== id)
+    : [...selectedDocumentTypeIds.value, id];
+
+  doc.document_type_id = selectedDocumentTypeIds.value[0] ?? null;
+}
+
+async function createVehicleModel(): Promise<void> {
+  const name = newModelName.value.trim();
+  if (!name) {
+    toast.add({ severity: 'warn', summary: 'Diqqat', detail: 'Rusum nomini kiriting', life: 3000 });
+    return;
+  }
+
+  modelSaving.value = true;
+  try {
+    const created = await vehicleModelsApi.create({ name, is_active: true });
+    models.value = [...models.value, created];
+    newV.vehicle_model_id = created.id;
+    newModelName.value = '';
+    modelDialogVisible.value = false;
+    toast.add({ severity: 'success', summary: 'Saqlandi', detail: 'Avtomobil rusumi qo‘shildi', life: 2500 });
+  } catch (e) {
+    toast.add({ severity: 'error', summary: 'Xatolik', detail: extractError(e), life: 5000 });
+  } finally {
+    modelSaving.value = false;
+  }
 }
 
 function next() {
@@ -154,18 +308,40 @@ async function submit() {
     }
 
     // 3) Inspection document
+    if (isSimpleDocumentSelection.value) {
+      doc.act_number = doc.act_number || doc.doc_number;
+      doc.fuel_type_id = doc.fuel_type_id || selectedVehicleFuelTypeId.value;
+    }
+
     const document = await inspectionDocumentsApi.create({
       doc_number: doc.doc_number,
-      act_number: doc.act_number,
+      act_number: doc.act_number || doc.doc_number,
       date: toIso(doc.date),
       branch_id: doc.branch_id!,
       vehicle_id: vehicleId!,
       counterparty_id: counterpartyId!,
       fuel_type_id: doc.fuel_type_id!,
-      document_type_id: doc.document_type_id!,
+      document_type_id: selectedDocumentTypeIds.value[0],
+      primary_document_type_id: selectedDocumentTypeIds.value[0],
       employee_id: auth.user!.id,
       status: doc.status as 'pending' | 'completed',
+      subtotal: expectedPayment.value.amount ? expectedPayment.value.amount.toFixed(2) : undefined,
+      discount_amount: '0.00',
+      total_amount: expectedPayment.value.amount ? expectedPayment.value.amount.toFixed(2) : undefined,
+      notes: gasBalloonDescription.value || undefined,
+      gas_cylinder: showGasBalloonFields.value ? { ...gasCylinder } : undefined,
     });
+
+    await Promise.all(selectedDocumentTypes.value.map((type) => generatedDocumentsApi.create({
+      inspection_document_id: document.id,
+      document_type_id: type.id,
+      document_number: `${doc.doc_number}-${type.id}`,
+      status: 'draft',
+      payload: {
+        selected_document_type_ids: selectedDocumentTypeIds.value,
+      },
+      created_by: auth.user!.id,
+    })));
 
     // 4) Optional payment
     if (addPayment.value && payTotal.value > 0) {
@@ -179,7 +355,9 @@ async function submit() {
         receiptType: pay.receipt_type as 'INV' | 'FTK',
         zReportId: pay.z_report_id || null,
         paymentMethods: paymentMethods.value,
+        description: paymentDescription.value,
       }));
+      window.dispatchEvent(new Event('cash-balance:refresh'));
     }
 
     toast.add({ severity: 'success', summary: 'Tayyor', detail: 'Ko‘rik hujjati ro‘yxatga olindi', life: 3000 });
@@ -195,8 +373,8 @@ async function submit() {
 <template>
   <div class="mx-auto max-w-3xl space-y-6">
     <div>
-      <h1 class="text-2xl font-semibold tracking-tight">Yangi ko‘rik hujjati</h1>
-      <p class="text-sm text-slate-400">Bosqichma-bosqich ro‘yxatga olish</p>
+      <h1 class="text-2xl font-semibold tracking-tight">Yangi hujjat</h1>
+      <p class="text-sm text-slate-400">Texnik ko‘rik, gaz, sug‘urta va tonirovka</p>
     </div>
 
     <!-- Step indicator -->
@@ -270,8 +448,8 @@ async function submit() {
 
         <div v-if="vMode === 'existing'">
           <label class="mb-1.5 block text-sm font-medium text-slate-300">Avtomobilni tanlang</label>
-          <Select v-model="selectedVehicleId" :options="vehicles" option-value="id" class="w-full" placeholder="Mijoz avtomobillari">
-            <template #option="{ option }">{{ option.license_plate }} — {{ option.vehicle_model?.name }}</template>
+          <Select v-model="selectedVehicleId" :options="vehicles" option-label="license_plate" option-value="id" class="w-full" filter filter-placeholder="Davlat raqami" placeholder="Davlat raqami bilan qidirish">
+            <template #option="{ option }">{{ option.license_plate }} — {{ option.vehicle_type ?? '—' }} — {{ option.vehicle_model?.name }}</template>
             <template #value="{ value }">
               <span v-if="value">{{ vehicles.find((v) => v.id === value)?.license_plate }}</span>
               <span v-else class="text-slate-500">Tanlang</span>
@@ -287,7 +465,14 @@ async function submit() {
           </div>
           <div>
             <label class="mb-1.5 block text-sm font-medium text-slate-300">Rusumi</label>
-            <Select v-model="newV.vehicle_model_id" :options="models" option-label="name" option-value="id" class="w-full" placeholder="Tanlang" />
+            <div class="flex gap-2">
+              <Select v-model="newV.vehicle_model_id" :options="models" option-label="name" option-value="id" class="min-w-0 flex-1" placeholder="Tanlang" filter />
+              <Button icon="pi pi-plus" outlined v-tooltip.top="'Yangi rusum qo‘shish'" @click="modelDialogVisible = true" />
+            </div>
+          </div>
+          <div>
+            <label class="mb-1.5 block text-sm font-medium text-slate-300">Avtomobil turi</label>
+            <Select v-model="newV.vehicle_type" :options="vehicleTypes" option-label="label" option-value="value" class="w-full" placeholder="Tanlang" />
           </div>
           <div>
             <label class="mb-1.5 block text-sm font-medium text-slate-300">Ishlab chiqarilgan yili</label>
@@ -314,7 +499,7 @@ async function submit() {
           <label class="mb-1.5 block text-sm font-medium text-slate-300">Hujjat №</label>
           <InputText v-model="doc.doc_number" class="w-full" />
         </div>
-        <div>
+        <div v-if="showActNumber">
           <label class="mb-1.5 block text-sm font-medium text-slate-300">Akt №</label>
           <InputText v-model="doc.act_number" class="w-full" />
         </div>
@@ -327,12 +512,52 @@ async function submit() {
           <Select v-model="doc.branch_id" :options="branches" option-label="name" option-value="id" class="w-full" placeholder="Tanlang" />
         </div>
         <div>
-          <label class="mb-1.5 block text-sm font-medium text-slate-300">Hujjat turi</label>
-          <Select v-model="doc.document_type_id" :options="documentTypes" option-label="name" option-value="id" class="w-full" placeholder="Tanlang" />
+          <label class="mb-1.5 block text-sm font-medium text-slate-300">Hujjat turlari</label>
+          <div class="grid grid-cols-1 gap-2 rounded-xl border border-slate-800 p-3">
+            <label v-for="type in documentTypeChoices" :key="type.id" class="flex items-center gap-2 text-sm text-slate-300">
+              <Checkbox :model-value="selectedDocumentTypeIds.includes(type.id)" :binary="true" @update:model-value="toggleDocumentType(type.id)" />
+              <span>{{ type.name }}</span>
+            </label>
+          </div>
+          <div class="mt-2 text-sm text-slate-400">Umumiy summa: <span class="font-semibold text-emerald-400">{{ money(expectedPayment.amount) }} so‘m</span></div>
         </div>
-        <div>
+        <div v-if="showFuelType">
           <label class="mb-1.5 block text-sm font-medium text-slate-300">Yoqilg‘i turi</label>
           <Select v-model="doc.fuel_type_id" :options="fuelTypes" option-label="name" option-value="id" class="w-full" placeholder="Tanlang" />
+        </div>
+        <div v-if="showGasBalloonFields" class="grid grid-cols-1 gap-4 rounded-xl border border-emerald-900/60 bg-emerald-950/20 p-4 sm:col-span-2 sm:grid-cols-2">
+          <div>
+            <label class="mb-1.5 block text-sm font-medium text-slate-300">Gaz ballon turi</label>
+            <Select v-model="gasCylinder.type" :options="gasCylinderTypes" option-label="label" option-value="value" class="w-full" />
+          </div>
+          <div>
+            <label class="mb-1.5 block text-sm font-medium text-slate-300">Ishlab chiqargan davlat</label>
+            <InputText v-model="gasCylinder.manufacturer_country" class="w-full" />
+          </div>
+          <div>
+            <label class="mb-1.5 block text-sm font-medium text-slate-300">Gaz ballon raqami</label>
+            <InputText v-model="gasCylinder.cylinder_number" class="w-full" />
+          </div>
+          <div>
+            <label class="mb-1.5 block text-sm font-medium text-slate-300">Gaz ballon hajmi (litr)</label>
+            <InputNumber v-model="gasCylinder.volume_liters" class="w-full" :min="0" :min-fraction-digits="0" :max-fraction-digits="2" />
+          </div>
+          <div>
+            <label class="mb-1.5 block text-sm font-medium text-slate-300">Gaz ballon og‘irligi (kg)</label>
+            <InputNumber v-model="gasCylinder.weight_kg" class="w-full" :min="0" :min-fraction-digits="0" :max-fraction-digits="2" />
+          </div>
+          <div>
+            <label class="mb-1.5 block text-sm font-medium text-slate-300">Ishlab chiqarilgan yil</label>
+            <InputNumber v-model="gasCylinder.manufacture_year" class="w-full" :use-grouping="false" :min="1900" :max="2100" />
+          </div>
+          <div>
+            <label class="mb-1.5 block text-sm font-medium text-slate-300">Ishchi bosimi</label>
+            <InputNumber v-model="gasCylinder.working_pressure" class="w-full" :min="0" :min-fraction-digits="0" :max-fraction-digits="2" />
+          </div>
+          <div>
+            <label class="mb-1.5 block text-sm font-medium text-slate-300">Sinov bosimi</label>
+            <InputNumber v-model="gasCylinder.test_pressure" class="w-full" :min="0" :min-fraction-digits="0" :max-fraction-digits="2" />
+          </div>
         </div>
       </div>
 
@@ -349,7 +574,7 @@ async function submit() {
             <InputNumber v-model="pay.cash_amount" class="w-full" :min="0" />
           </div>
           <div>
-            <label class="mb-1.5 block text-sm font-medium text-slate-300">Plastik</label>
+            <label class="mb-1.5 block text-sm font-medium text-slate-300">Terminal</label>
             <InputNumber v-model="pay.plastic_amount" class="w-full" :min="0" />
           </div>
           <div>
@@ -360,12 +585,28 @@ async function submit() {
             <label class="mb-1.5 block text-sm font-medium text-slate-300">Z-hisobot ID</label>
             <InputText v-model="pay.z_report_id" class="w-full" />
           </div>
+          <div v-if="paymentMismatch" class="sm:col-span-2">
+            <label class="mb-1.5 block text-sm font-medium text-slate-300">Summa farqi izohi</label>
+            <Textarea v-model="pay.description" class="w-full" rows="2" />
+          </div>
           <div class="rounded-xl bg-slate-800/50 p-3 text-center sm:col-span-2">
             <span class="text-sm text-slate-400">Jami: </span>
             <span class="text-lg font-semibold text-emerald-400">{{ money(payTotal) }} so‘m</span>
+            <div v-if="expectedPayment.amount" class="mt-1 text-sm text-slate-400">Belgilangan narx: {{ money(expectedPayment.amount) }} so‘m</div>
           </div>
         </div>
       </div>
+
+      <Dialog v-model:visible="modelDialogVisible" modal header="Yangi avtomobil rusumi" class="w-full max-w-md">
+        <div class="space-y-3 pt-2">
+          <label class="mb-1.5 block text-sm font-medium text-slate-300">Rusum nomi</label>
+          <InputText v-model="newModelName" class="w-full" placeholder="Masalan: Chevrolet Cobalt" @keyup.enter="createVehicleModel" />
+        </div>
+        <template #footer>
+          <Button label="Bekor qilish" text @click="modelDialogVisible = false" />
+          <Button label="Qo‘shish" icon="pi pi-check" :loading="modelSaving" @click="createVehicleModel" />
+        </template>
+      </Dialog>
 
       <!-- Controls -->
       <div class="mt-6 flex justify-between border-t border-slate-800 pt-4">

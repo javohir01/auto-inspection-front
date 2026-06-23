@@ -1,5 +1,5 @@
 import http from './http';
-import { isMockModeEnabled, mockCreate, mockGet, mockList, mockRemove, mockUpdate } from '@/mock/backend';
+import { isMockModeEnabled, mockCashBalanceSummary, mockCreate, mockGet, mockList, mockRemove, mockSafeDeposit, mockUpdate } from '@/mock/backend';
 import type {
   Branch,
   Region,
@@ -12,8 +12,10 @@ import type {
   Counterparty,
   Vehicle,
   InspectionDocument,
+  GeneratedDocument,
   Payment,
   Expense,
+  CashBalance,
 } from '@/types';
 
 // Payloads are dynamic form bags, so they are typed loosely on write.
@@ -59,35 +61,15 @@ export const usersApi = resource<User>('users');
 export const counterpartiesApi = resource<Counterparty>('counterparties');
 export const vehiclesApi = resource<Vehicle>('vehicles');
 export const inspectionDocumentsApi = resource<InspectionDocument>('inspection-documents');
+export const generatedDocumentsApi = resource<GeneratedDocument>('generated-documents');
 export const paymentsApi = resource<Payment>('payments');
 export const expensesApi = resource<Expense>('expenses');
 
-export interface OnlinePaymentLink {
-  provider: 'payme' | 'click';
-  url: string;
-  amount_due: string;
-  inspection_document_id: number;
-  test_mode: boolean;
-}
-
-export interface OnlinePaymentResult {
-  provider: 'payme' | 'click';
-  paid: boolean;
-  payment_status: string;
-  amount: string;
-  inspection_document_id: number;
-}
-
-// Online payment (Payme / Click).
-export const onlinePaymentApi = {
-  // Generate a hosted-checkout link for a document.
-  link: (inspectionDocumentId: number, provider: 'payme' | 'click', returnUrl?: string) =>
-    http
-      .post(`/inspection-documents/${inspectionDocumentId}/payment-link`, { provider, return_url: returnUrl })
-      .then((r) => r.data.data as OnlinePaymentLink),
-  // Simulate a successful payment (test mode only) — completes the flow locally.
-  simulate: (inspectionDocumentId: number, provider: 'payme' | 'click') =>
-    http
-      .post(`/inspection-documents/${inspectionDocumentId}/simulate-payment`, { provider })
-      .then((r) => r.data.data as OnlinePaymentResult),
+export const cashBalanceApi = {
+  summary: (params?: { branch_id?: number | null; employee_id?: number | null; date?: string | null }) => isMockModeEnabled()
+    ? mockCashBalanceSummary(params)
+    : http.get('/cash-balance', { params }).then((r) => r.data.data as CashBalance),
+  safeDeposit: (payload: { branch_id?: number | null; amount: number; date?: string | null; description?: string | null }) => isMockModeEnabled()
+    ? mockSafeDeposit(payload)
+    : http.post('/safe-deposits', payload).then((r) => r.data.data as { transaction_id: number; summary: CashBalance }),
 };

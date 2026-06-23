@@ -106,8 +106,9 @@ function seedDb(): MockDb {
   ];
 
   const documentTypes: DocumentType[] = [
-    { id: 1, name: 'Birlamchi ko‘rik' },
-    { id: 2, name: 'Takroriy ko‘rik' },
+    { id: 1, name: 'TEXOSMOTR' },
+    { id: 2, name: 'GAZ AKT' },
+    { id: 3, name: 'TEXOSMOTR+GAZ' },
   ];
 
   const vehicleModels: VehicleModel[] = [
@@ -157,6 +158,7 @@ function seedDb(): MockDb {
       counterparty_id: 1,
       vehicle_model_id: 1,
       license_plate: '01A123BC',
+      vehicle_type: 'Yengil',
       manufacture_year: 2022,
       body_number: 'BODY-001',
       chassis_number: 'CHS-001',
@@ -168,6 +170,7 @@ function seedDb(): MockDb {
       counterparty_id: 2,
       vehicle_model_id: 4,
       license_plate: '30B456CD',
+      vehicle_type: 'Yuk',
       manufacture_year: 2021,
       body_number: 'BODY-002',
       chassis_number: 'CHS-002',
@@ -488,6 +491,11 @@ function filterItems<T extends { [key: string]: any }>(path: ResourceName, items
 
     if (path === 'vehicles' && params.counterparty_id && Number(item.counterparty_id) !== Number(params.counterparty_id)) {
       return false;
+    }
+
+    if (path === 'vehicles' && params.license_plate) {
+      const plate = String(params.license_plate).toLowerCase();
+      if (!String(item.license_plate ?? '').toLowerCase().includes(plate)) return false;
     }
 
     if (path === 'inspection-documents' && params.license_plate) {

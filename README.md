@@ -6,7 +6,7 @@ Bu repository texnik ko'rik tizimining yagona SPA frontend qismi. U backend API 
 2. Dashboard
 3. Mijozlar
 4. Avtomobillar
-5. Ko'rik hujjatlari
+5. Hujjatlar: texnik ko'rik, gaz, sug'urta, tonirovka
 6. To'lovlar
 7. Xarajatlar
 8. Admin/moderator kataloglari
@@ -26,7 +26,7 @@ Frontend backend bilan to'g'ridan-to'g'ri form field darajasida ishlaydi. U:
 - login orqali Sanctum token oladi
 - tokenni `localStorage`da saqlaydi
 - CRUD ekranlarda Laravel resource response'larini ko'rsatadi
-- wizard ichida counterparty, vehicle, inspection document va payment oqimini ketma-ket yaratadi
+- wizard ichida counterparty, vehicle, xizmat hujjati va payment oqimini ketma-ket yaratadi
 - payment yaratishda yangi `lines` va `allocations` payloadini yuboradi
 - list va dashboardlarda legacy compatibility maydonlarini ham ko'ra oladi
 
@@ -125,8 +125,8 @@ Bu frontendning backend bilan eng muhim bridge fayli:
 ### `views/Dashboard.vue`
 
 - admin bo'lsa system-wide countlarni ko'rsatadi
-- oddiy rolelar uchun bugungi tushum/xarajat/hujjat holatini ko'rsatadi
-- `payments` breakdown uchun `paymentCompat`dan foydalanadi
+- header bilan bir xil `cash-balance` endpointidan kunlik qoldiq, naqd, terminal va xarajat summalarini ko'rsatadi
+- `cash-balance:refresh` eventida header bilan birga qayta yuklanadi
 
 ### `views/Wizard.vue`
 
@@ -144,6 +144,8 @@ Bu ekran backendga ketma-ket bir nechta request yuboradi.
 - payment list
 - create/update dialog
 - payment create paytida `payment-methods`ni olib, `buildPaymentPayload()` orqali payload yig'adi
+- backend paymentni darhol `posted` qiladi, shu sabab posted payment edit/delete UI'da yopilgan
+- saqlashdan keyin headerdagi kunlik balans refresh qilinadi
 
 ### `views/Documents.vue`
 
@@ -153,7 +155,8 @@ Bu ekran backendga ketma-ket bir nechta request yuboradi.
 ### `views/Expenses.vue`
 
 - expense CRUD
-- hozircha legacy expense payload bilan ishlaydi
+- xarajat asosi optionlardan tanlanadi, `Boshqa` tanlansa qo'lda kiritiladi
+- expense saqlanganda backend operator/kassir kunlik balansidan yechadi
 
 ### `views/Counterparties.vue`, `Vehicles.vue`
 
@@ -199,7 +202,13 @@ Bu ekran backendga ketma-ket bir nechta request yuboradi.
 }
 ```
 
-### Inspection document create
+### Service document create
+
+Wizarddagi `Hujjat turlari` ro‘yxatida texnik ko‘rik, gaz, sug‘urta va tonirovka turlari tanlanadi. Sug‘urta va tonirovka uchun forma hozircha umumiy hujjat formasining ixcham varianti: agar faqat shu oddiy turlar tanlansa, `Akt №` va `Yoqilg‘i turi` foydalanuvchidan so‘ralmaydi, lekin backend contract majburiy bo‘lgani uchun avtomatik to‘ldiriladi.
+
+Wizardda bir nechta hujjat turini tanlash mumkin. Birinchi tanlangan tur asosiy `inspection_documents.document_type_id` sifatida yuboriladi, tanlangan barcha turlar esa shu hujjatga bog‘langan `generated_documents` yozuvlari sifatida saqlanadi. Umumiy summa tanlangan hujjat turlari narxlarining yig‘indisi sifatida ko‘rsatiladi.
+
+Avtomobil yaratish bosqichida rusum selecti yonidagi `+` tugmasi orqali yangi rusum qo‘shib, darhol tanlab ketish mumkin.
 
 ```json
 {
@@ -212,7 +221,17 @@ Bu ekran backendga ketma-ket bir nechta request yuboradi.
   "fuel_type_id": 1,
   "document_type_id": 1,
   "employee_id": 1,
-  "status": "completed"
+  "status": "completed",
+  "gas_cylinder": {
+    "type": "metan",
+    "manufacturer_country": "Uzbekistan",
+    "cylinder_number": "GB-123456",
+    "volume_liters": 80,
+    "weight_kg": 72.5,
+    "manufacture_year": 2024,
+    "working_pressure": 200,
+    "test_pressure": 300
+  }
 }
 ```
 
@@ -241,6 +260,8 @@ Frontend hozir backendga quyidagi forward-compatible payload yuboradi:
 }
 ```
 
+Backend bu payloadni `draft` qilib yaratadi va shu request ichida `posted` qiladi. Hozircha ishchi payment methodlar `CASH`, `UZCARD`, `HUMO`; Payme/Click UI va API helperlari frontdan olib tashlangan.
+
 ## 6. Frontend qanday data oladi
 
 Frontend Laravel resource shape'ga tayangan:
@@ -254,9 +275,13 @@ Eng muhim response'lar:
 - `/me`
   current user va uning branchi
 - `/payment-methods`
-  `CASH`, `UZCARD`, `HUMO`, `BANK`, `REFUND`
+  active `cash/card` metodlar: `CASH`, `UZCARD`, `HUMO`
 - `/payments`
   legacy + new register maydonlar birga
+- `/cash-balance`
+  header uchun kunlik naqd/terminal/xarajat/seyf/qoldiq
+- `/safe-deposits`
+  kassir/operator kunlik balansidan branch umumiy seyfiga topshirish
 - `/inspection-documents`
   branch, vehicle, counterparty, totals, items, generated documents
 - `/cash-reports`

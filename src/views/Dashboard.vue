@@ -1,18 +1,16 @@
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue';
+import { onBeforeUnmount, onMounted, ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { getPaymentBreakdown } from '@/composables/paymentCompat';
 import {
   branchesApi,
   counterpartiesApi,
   vehiclesApi,
   usersApi,
   inspectionDocumentsApi,
-  paymentsApi,
-  expensesApi,
+  cashBalanceApi,
 } from '@/api/services';
 import { useAuthStore } from '@/stores/auth';
-import type { InspectionDocument, Payment, Expense } from '@/types';
+import type { InspectionDocument, CashBalance } from '@/types';
 
 const router = useRouter();
 const auth = useAuthStore();
@@ -22,8 +20,7 @@ const loading = ref(true);
 const stats = ref({ branches: 0, counterparties: 0, vehicles: 0, users: 0, documents: 0 });
 const recentDocs = ref<InspectionDocument[]>([]);
 const todayDocs = ref<InspectionDocument[]>([]);
-const payments = ref<Payment[]>([]);
-const expenses = ref<Expense[]>([]);
+const cashBalance = ref<CashBalance | null>(null);
 
 const today = new Date().toISOString().slice(0, 10);
 
@@ -31,10 +28,10 @@ function money(v: string | number): string {
   return new Intl.NumberFormat('uz-UZ').format(Number(v));
 }
 
-const totalPayments = computed(() => payments.value.reduce((s, p) => s + Number(p.total_amount), 0));
-const totalCash = computed(() => payments.value.reduce((sum, payment) => sum + getPaymentBreakdown(payment).cashAmount, 0));
-const totalPlastic = computed(() => payments.value.reduce((sum, payment) => sum + getPaymentBreakdown(payment).plasticAmount, 0));
-const totalExpenses = computed(() => expenses.value.reduce((s, e) => s + Number(e.amount), 0));
+const dailyBalance = computed(() => Number(cashBalance.value?.balance || 0));
+const totalCash = computed(() => Number(cashBalance.value?.cash_income || 0));
+const totalTerminal = computed(() => Number(cashBalance.value?.terminal_income || 0));
+const totalExpenses = computed(() => Number(cashBalance.value?.expense_total || 0));
 const pendingCount = computed(() => todayDocs.value.filter((d) => d.status === 'pending').length);
 
 const cards = [
@@ -45,12 +42,31 @@ const cards = [
   { key: 'documents', label: 'Ko‘rik hujjatlari', icon: 'pi pi-file', color: 'from-sky-500 to-cyan-500' },
 ] as const;
 
-onMounted(async () => {
+async function loadDailyBalance(): Promise<void> {
+  cashBalance.value = await cashBalanceApi.summary({
+    branch_id: auth.user?.branch_id ?? null,
+    employee_id: auth.user?.id ?? null,
+    date: today,
+  });
+}
+
+async function refreshDashboardBalance(): Promise<void> {
   try {
-    // Today's figures are useful for both roles.
-    [payments.value, expenses.value, todayDocs.value] = await Promise.all([
-      paymentsApi.list({ start_date: today, end_date: today }),
-      expensesApi.list({ start_date: today, end_date: today }).catch(() => []),
+    await loadDailyBalance();
+  } catch {
+    cashBalance.value = null;
+  }
+}
+
+onMounted(async () => {
+  window.addEventListener('cash-balance:refresh', refreshDashboardBalance);
+  try {
+    [cashBalance.value, todayDocs.value] = await Promise.all([
+      cashBalanceApi.summary({
+        branch_id: auth.user?.branch_id ?? null,
+        employee_id: auth.user?.id ?? null,
+        date: today,
+      }).catch(() => null),
       inspectionDocumentsApi.list({ start_date: today, end_date: today }),
     ]);
 
@@ -75,6 +91,10 @@ onMounted(async () => {
     loading.value = false;
   }
 });
+
+onBeforeUnmount(() => {
+  window.removeEventListener('cash-balance:refresh', refreshDashboardBalance);
+});
 </script>
 
 <template>
@@ -84,7 +104,7 @@ onMounted(async () => {
         <h1 class="text-2xl font-semibold tracking-tight">Boshqaruv paneli</h1>
         <p class="text-sm text-slate-400">{{ isAdmin ? 'Tizim bo‘yicha umumiy ko‘rsatkichlar' : today }}</p>
       </div>
-      <Button v-if="auth.user?.role !== 'moderator'" label="Yangi ko‘rik" icon="pi pi-plus" @click="router.push('/wizard')" />
+      <Button v-if="auth.user?.role !== 'moderator'" label="Yangi hujjat" icon="pi pi-plus" @click="router.push('/wizard')" />
     </div>
 
     <!-- Admin: system-wide stat cards -->
@@ -101,12 +121,12 @@ onMounted(async () => {
     <!-- Daily figures (both roles) -->
     <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
       <div class="rounded-2xl border border-slate-800 bg-[#0e1320] p-5">
-        <div class="text-sm text-slate-400">Bugungi tushum</div>
-        <div class="mt-2 text-2xl font-bold text-emerald-400">{{ money(totalPayments) }} <span class="text-sm text-slate-400">so‘m</span></div>
+        <div class="text-sm text-slate-400">Kunlik qoldiq</div>
+        <div class="mt-2 text-2xl font-bold text-emerald-400">{{ money(dailyBalance) }} <span class="text-sm text-slate-400">so‘m</span></div>
       </div>
       <div class="rounded-2xl border border-slate-800 bg-[#0e1320] p-5">
-        <div class="text-sm text-slate-400">Naqd / Plastik</div>
-        <div class="mt-2 text-lg font-semibold">{{ money(totalCash) }} / {{ money(totalPlastic) }}</div>
+        <div class="text-sm text-slate-400">Naqd / Terminal</div>
+        <div class="mt-2 text-lg font-semibold">{{ money(totalCash) }} / {{ money(totalTerminal) }}</div>
       </div>
       <div class="rounded-2xl border border-slate-800 bg-[#0e1320] p-5">
         <div class="text-sm text-slate-400">Bugungi xarajat</div>

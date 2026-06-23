@@ -1,18 +1,23 @@
 <script setup lang="ts">
 import { onMounted, ref, computed, watch } from 'vue';
-import { paymentsApi, branchesApi, counterpartiesApi, paymentMethodsApi } from '@/api/services';
+import { useToast } from 'primevue/usetoast';
+import { paymentsApi, branchesApi, counterpartiesApi, paymentMethodsApi, inspectionDocumentsApi } from '@/api/services';
 import { buildPaymentPayload, getPaymentBreakdown, getPrimaryInspectionDocumentId } from '@/composables/paymentCompat';
+import { calculateInspectionPaymentAmount } from '@/composables/inspectionPricing';
 import { useCrud } from '@/composables/useCrud';
 import { useAuthStore } from '@/stores/auth';
-import type { Payment, Branch, Counterparty, PaymentMethod } from '@/types';
+import type { Payment, Branch, Counterparty, PaymentMethod, InspectionDocument } from '@/types';
 
 const auth = useAuthStore();
+const toast = useToast();
 const crud = useCrud<Payment>(paymentsApi, { label: 'To‘lov' });
 const { items, loading, saving, dialogVisible, isEdit, form } = crud;
 
 const branches = ref<Branch[]>([]);
 const counterparties = ref<Counterparty[]>([]);
 const paymentMethods = ref<PaymentMethod[]>([]);
+const inspectionDocuments = ref<InspectionDocument[]>([]);
+const lastAutoPaymentAmount = ref(0);
 const receiptTypes = [
   { label: 'Hisob-faktura (INV)', value: 'INV' },
   { label: 'Fiskal chek (FTK)', value: 'FTK' },
@@ -31,12 +36,34 @@ function toIso(d: unknown): string | null {
 // Total is always the sum of cash + plastic (matches backend validation).
 const computedTotal = computed(() => Number(form.value.cash_amount || 0) + Number(form.value.plastic_amount || 0));
 watch(computedTotal, (v) => { form.value.total_amount = v; });
+const selectedInspectionDocument = computed(() => inspectionDocuments.value.find((doc) => doc.id === getPrimaryInspectionDocumentId(form.value as Payment)) ?? null);
+const expectedPayment = computed(() => calculateInspectionPaymentAmount({
+  documentType: selectedInspectionDocument.value?.document_type,
+  vehicleType: selectedInspectionDocument.value?.vehicle?.vehicle_type,
+  gasCylinderCount: 1,
+}));
+const paymentMismatch = computed(() => expectedPayment.value.amount > 0 && computedTotal.value !== expectedPayment.value.amount);
+
+watch(selectedInspectionDocument, (document) => {
+  if (!document || isEdit.value) return;
+
+  form.value.branch_id = document.branch_id;
+  form.value.counterparty_id = document.counterparty_id;
+
+  if (expectedPayment.value.amount > 0 && (computedTotal.value === 0 || computedTotal.value === lastAutoPaymentAmount.value)) {
+    form.value.cash_amount = expectedPayment.value.amount;
+    form.value.plastic_amount = 0;
+  }
+
+  lastAutoPaymentAmount.value = expectedPayment.value.amount;
+});
 
 onMounted(async () => {
-  [branches.value, counterparties.value, paymentMethods.value] = await Promise.all([
+  [branches.value, counterparties.value, paymentMethods.value, inspectionDocuments.value] = await Promise.all([
     branchesApi.list(),
     counterpartiesApi.list(),
     paymentMethodsApi.list().catch(() => []),
+    inspectionDocumentsApi.list(),
   ]);
   await crud.load();
 });
@@ -52,10 +79,17 @@ function openCreate() {
     plastic_amount: 0,
     receipt_type: 'FTK',
     z_report_id: '',
+    description: '',
   });
+  lastAutoPaymentAmount.value = 0;
 }
 
 async function handleSave() {
+  if (paymentMismatch.value && !String(form.value.description || '').trim()) {
+    toast.add({ severity: 'warn', summary: 'Diqqat', detail: 'To‘lov summasi belgilangan narxdan farq qiladi. Izoh kiriting', life: 4000 });
+    return;
+  }
+
   const payment = form.value as Payment;
   form.value = {
     ...form.value,
@@ -68,10 +102,14 @@ async function handleSave() {
       inspectionDocumentId: getPrimaryInspectionDocumentId(payment),
       receiptType: form.value.receipt_type ?? 'FTK',
       zReportId: form.value.z_report_id || null,
+      description: form.value.description || null,
       paymentMethods: paymentMethods.value,
     }),
   };
-  await crud.save();
+  const saved = await crud.save();
+  if (saved) {
+    window.dispatchEvent(new Event('cash-balance:refresh'));
+  }
 }
 </script>
 
@@ -98,8 +136,11 @@ async function handleSave() {
         <Column header="Naqd">
           <template #body="{ data }">{{ money(getPaymentBreakdown(data).cashAmount) }}</template>
         </Column>
-        <Column header="Plastik">
+        <Column header="Terminal">
           <template #body="{ data }">{{ money(getPaymentBreakdown(data).plasticAmount) }}</template>
+        </Column>
+        <Column header="Holat">
+          <template #body="{ data }"><Tag :value="data.status === 'posted' ? 'To‘landi' : data.status" :severity="data.status === 'posted' ? 'success' : 'warn'" /></template>
         </Column>
         <Column header="Chek turi">
           <template #body="{ data }"><Tag :value="data.receipt_type ?? '—'" /></template>
@@ -107,8 +148,8 @@ async function handleSave() {
         <Column header="Amallar" style="width: 8rem">
           <template #body="{ data }">
             <div class="flex gap-2">
-              <Button icon="pi pi-pencil" text rounded size="small" @click="crud.openEdit(data)" />
-              <Button icon="pi pi-trash" text rounded severity="danger" size="small" @click="crud.remove(data)" />
+              <Button icon="pi pi-pencil" text rounded size="small" :disabled="data.status === 'posted'" @click="crud.openEdit(data)" />
+              <Button icon="pi pi-trash" text rounded severity="danger" size="small" :disabled="data.status === 'posted'" @click="crud.remove(data)" />
             </div>
           </template>
         </Column>
@@ -125,6 +166,18 @@ async function handleSave() {
           <label class="mb-1.5 block text-sm font-medium text-slate-300">Mijoz</label>
           <Select v-model="form.counterparty_id" :options="counterparties" option-label="full_name" option-value="id" class="w-full" filter placeholder="Tanlang" />
         </div>
+        <div class="sm:col-span-2">
+          <label class="mb-1.5 block text-sm font-medium text-slate-300">Hujjat</label>
+          <Select v-model="form.inspection_document_id" :options="inspectionDocuments" option-value="id" class="w-full" filter placeholder="Tanlang">
+            <template #option="{ option }">{{ option.doc_number }} — {{ option.vehicle?.license_plate ?? '—' }} — {{ option.document_type?.name ?? '—' }}</template>
+            <template #value="{ value }">
+              <span v-if="value">
+                {{ inspectionDocuments.find((doc) => doc.id === value)?.doc_number }}
+              </span>
+              <span v-else class="text-slate-500">Tanlang</span>
+            </template>
+          </Select>
+        </div>
         <div>
           <label class="mb-1.5 block text-sm font-medium text-slate-300">Sana</label>
           <DatePicker v-model="form.date" class="w-full" date-format="yy-mm-dd" />
@@ -138,12 +191,17 @@ async function handleSave() {
           <InputNumber v-model="form.cash_amount" class="w-full" :min="0" />
         </div>
         <div>
-          <label class="mb-1.5 block text-sm font-medium text-slate-300">Plastik</label>
+          <label class="mb-1.5 block text-sm font-medium text-slate-300">Terminal</label>
           <InputNumber v-model="form.plastic_amount" class="w-full" :min="0" />
+        </div>
+        <div v-if="paymentMismatch" class="sm:col-span-2">
+          <label class="mb-1.5 block text-sm font-medium text-slate-300">Summa farqi izohi</label>
+          <Textarea v-model="form.description" class="w-full" rows="2" />
         </div>
         <div class="rounded-xl bg-slate-800/50 p-3 text-center sm:col-span-2">
           <span class="text-sm text-slate-400">Jami summa: </span>
           <span class="text-lg font-semibold text-emerald-400">{{ money(computedTotal) }} so‘m</span>
+          <div v-if="expectedPayment.amount" class="mt-1 text-sm text-slate-400">Belgilangan narx: {{ money(expectedPayment.amount) }} so‘m</div>
         </div>
       </div>
       <template #footer>

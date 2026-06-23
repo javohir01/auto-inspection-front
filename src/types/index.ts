@@ -38,6 +38,7 @@ export interface FuelType {
 
 export interface DocumentType {
   id: number;
+  code?: string;
   name: string;
 }
 
@@ -45,7 +46,7 @@ export interface PaymentMethod {
   id: number;
   code: string;
   name: string;
-  type: 'cash' | 'card' | 'bank' | 'refund' | string;
+  type: 'cash' | 'card' | 'bank' | 'online' | 'refund' | string;
   is_fiscal: boolean;
   is_active: boolean;
 }
@@ -85,12 +86,28 @@ export interface Vehicle {
   vehicle_model_id: number;
   vehicle_model?: VehicleModel;
   license_plate: string;
+  vehicle_type: 'Yengil' | 'Yuk' | 'Tirkama' | 'Mototsikl' | 'Avtobus' | 'Mikroavtobus';
   manufacture_year: number;
   body_number: string | null;
   chassis_number: string | null;
   engine_number: string | null;
   current_fuel_type_id: number;
   current_fuel_type?: FuelType;
+}
+
+export interface GasCylinder {
+  id: number;
+  inspection_document_id: number;
+  type: 'metan' | 'propan';
+  manufacturer_country: string;
+  cylinder_number: string;
+  volume_liters: string | number;
+  weight_kg: string | number;
+  manufacture_year: number;
+  working_pressure: string | number;
+  test_pressure: string | number;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface InspectionDocument {
@@ -111,8 +128,24 @@ export interface InspectionDocument {
   employee_id: number;
   employee?: User;
   status: 'pending' | 'completed';
+  gas_cylinder?: GasCylinder | null;
   payment_status?: 'unpaid' | 'partial' | 'paid' | 'refunded';
   total_amount?: string;
+  generated_documents?: GeneratedDocument[];
+}
+
+export interface GeneratedDocument {
+  id: number;
+  inspection_document_id: number;
+  inspection_document?: InspectionDocument;
+  document_type_id: number;
+  document_type?: DocumentType;
+  document_number: string;
+  status: 'draft' | 'generated' | 'printed' | 'cancelled' | string;
+  payload?: Record<string, unknown> | null;
+  created_by?: number | null;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface Payment {
@@ -173,4 +206,19 @@ export interface Expense {
   payment_method: string;
   amount: string | number;
   description: string | null;
+}
+
+export interface CashBalance {
+  branch_id: number;
+  employee_id: number | null;
+  date: string;
+  cash_income: string;
+  terminal_income: string;
+  other_income: string;
+  income_total: string;
+  expense_total: string;
+  safe_deposit_total: string;
+  refund_total: string;
+  balance: string;
+  safe_balance: string;
 }

@@ -10,6 +10,15 @@ const { items, loading, saving, dialogVisible, isEdit, form } = crud;
 const counterparties = ref<Counterparty[]>([]);
 const models = ref<VehicleModel[]>([]);
 const fuelTypes = ref<FuelType[]>([]);
+const filters = ref({ license_plate: '' });
+const vehicleTypes = [
+  { label: 'Yengil', value: 'Yengil' },
+  { label: 'Yuk', value: 'Yuk' },
+  { label: 'Tirkama', value: 'Tirkama' },
+  { label: 'Mototsikl', value: 'Mototsikl' },
+  { label: 'Avtobus', value: 'Avtobus' },
+  { label: 'Mikroavtobus', value: 'Mikroavtobus' },
+];
 
 onMounted(async () => {
   [counterparties.value, models.value, fuelTypes.value] = await Promise.all([
@@ -26,11 +35,16 @@ function openCreate() {
     vehicle_model_id: null,
     current_fuel_type_id: null,
     license_plate: '',
+    vehicle_type: 'Yengil',
     manufacture_year: new Date().getFullYear(),
     body_number: '',
     chassis_number: '',
     engine_number: '',
   });
+}
+
+function applyFilters() {
+  crud.load({ license_plate: filters.value.license_plate || undefined });
 }
 </script>
 
@@ -44,10 +58,19 @@ function openCreate() {
       <Button label="Yangi avtomobil" icon="pi pi-plus" @click="openCreate" />
     </div>
 
+    <div class="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+      <IconField>
+        <InputIcon class="pi pi-search" />
+        <InputText v-model="filters.license_plate" class="w-full" placeholder="Davlat raqami" @keyup.enter="applyFilters" />
+      </IconField>
+      <Button label="Qidirish" outlined @click="applyFilters" />
+    </div>
+
     <div class="rounded-2xl border border-slate-800 bg-[#0e1320] p-2">
       <DataTable :value="items" :loading="loading" paginator :rows="10" data-key="id">
         <template #empty><div class="p-6 text-center text-slate-500">Avtomobillar topilmadi</div></template>
         <Column field="license_plate" header="Davlat raqami" />
+        <Column field="vehicle_type" header="Turi" />
         <Column header="Rusumi">
           <template #body="{ data }">{{ data.vehicle_model?.name ?? '—' }}</template>
         </Column>
@@ -82,6 +105,10 @@ function openCreate() {
         <div>
           <label class="mb-1.5 block text-sm font-medium text-slate-300">Rusumi</label>
           <Select v-model="form.vehicle_model_id" :options="models" option-label="name" option-value="id" class="w-full" placeholder="Tanlang" />
+        </div>
+        <div>
+          <label class="mb-1.5 block text-sm font-medium text-slate-300">Avtomobil turi</label>
+          <Select v-model="form.vehicle_type" :options="vehicleTypes" option-label="label" option-value="value" class="w-full" placeholder="Tanlang" />
         </div>
         <div>
           <label class="mb-1.5 block text-sm font-medium text-slate-300">Ishlab chiqarilgan yili</label>
