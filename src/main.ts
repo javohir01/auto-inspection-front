@@ -9,6 +9,7 @@ import ToastService from 'primevue/toastservice';
 import ConfirmationService from 'primevue/confirmationservice';
 import Tooltip from 'primevue/tooltip';
 import { initTheme } from './composables/useTheme';
+import { i18n } from './i18n';
 
 import './style.css';
 import 'primeicons/primeicons.css';
@@ -49,6 +50,7 @@ initTheme();
 const app = createApp(App);
 
 app.use(createPinia());
+app.use(i18n);
 app.use(router);
 app.use(PrimeVue, {
     theme: {

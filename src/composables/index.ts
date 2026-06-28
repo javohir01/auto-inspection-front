@@ -39,6 +39,7 @@ export interface FuelType {
 export interface DocumentType {
   id: number;
   name: string;
+  price: string | number;
 }
 
 export interface PaymentMethod {

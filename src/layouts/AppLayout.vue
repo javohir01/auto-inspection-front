@@ -6,6 +6,8 @@ import { cashBalanceApi } from '@/api/services';
 import { useAuthStore } from '@/stores/auth';
 import { useTheme } from '@/composables/useTheme';
 import { extractError } from '@/composables/useCrud';
+import { translate as t } from '@/i18n';
+import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
 import type { Role, CashBalance } from '@/types';
 
 const router = useRouter();
@@ -32,7 +34,7 @@ function toggleSidebar() {
 }
 
 interface NavItem {
-  label: string;
+  labelKey: string;
   icon: string;
   to: string;
   roles?: Role[];
@@ -40,16 +42,16 @@ interface NavItem {
 
 // `roles` undefined => visible to everyone. Otherwise filtered by the user's role.
 const allNav: NavItem[] = [
-  { label: 'Bosh sahifa', icon: 'pi pi-th-large', to: '/' },
-  { label: 'Hujjatlar', icon: 'pi pi-file', to: '/documents', roles: ['admin', 'cashier'] },
-  { label: 'To‘lovlar', icon: 'pi pi-credit-card', to: '/payments', roles: ['admin', 'cashier'] },
-  { label: 'Xarajatlar', icon: 'pi pi-wallet', to: '/expenses', roles: ['admin', 'cashier'] },
-  { label: 'Yangi hujjat', icon: 'pi pi-plus-circle', to: '/wizard', roles: ['admin', 'cashier'] },
-  { label: 'Mijozlar', icon: 'pi pi-users', to: '/counterparties', roles: ['admin', 'cashier', 'moderator'] },
-  { label: 'Avtomobillar', icon: 'pi pi-car', to: '/vehicles', roles: ['admin', 'cashier', 'moderator'] },
-  { label: 'Filiallar', icon: 'pi pi-building', to: '/branches', roles: ['admin'] },
-  { label: 'Xodimlar', icon: 'pi pi-id-card', to: '/users', roles: ['admin'] },
-  { label: 'Ma’lumotnomalar', icon: 'pi pi-database', to: '/catalogs', roles: ['admin', 'moderator'] },
+  { labelKey: 'nav.dashboard', icon: 'pi pi-th-large', to: '/' },
+  { labelKey: 'nav.documents', icon: 'pi pi-file', to: '/documents', roles: ['admin', 'cashier'] },
+  { labelKey: 'nav.payments', icon: 'pi pi-credit-card', to: '/payments', roles: ['admin', 'cashier'] },
+  { labelKey: 'nav.expenses', icon: 'pi pi-wallet', to: '/expenses', roles: ['admin', 'cashier'] },
+  { labelKey: 'nav.newDocument', icon: 'pi pi-plus-circle', to: '/wizard', roles: ['admin', 'cashier'] },
+  { labelKey: 'nav.counterparties', icon: 'pi pi-users', to: '/counterparties', roles: ['admin', 'cashier', 'moderator'] },
+  { labelKey: 'nav.vehicles', icon: 'pi pi-car', to: '/vehicles', roles: ['admin', 'cashier', 'moderator'] },
+  { labelKey: 'nav.branches', icon: 'pi pi-building', to: '/branches', roles: ['admin'] },
+  { labelKey: 'nav.users', icon: 'pi pi-id-card', to: '/users', roles: ['admin'] },
+  { labelKey: 'nav.catalogs', icon: 'pi pi-database', to: '/catalogs', roles: ['admin', 'moderator'] },
 ];
 
 const nav = computed(() => {
@@ -64,9 +66,9 @@ const initials = computed(() => {
 
 const roleLabel = computed(() => {
   switch (auth.user?.role) {
-    case 'admin': return 'Administrator';
-    case 'moderator': return 'Moderator';
-    case 'cashier': return 'Kassir';
+    case 'admin': return t('role.admin');
+    case 'moderator': return t('role.moderator');
+    case 'cashier': return t('role.cashier');
     default: return '';
   }
 });
@@ -107,9 +109,9 @@ async function saveSafeDeposit() {
     cashBalance.value = result.summary;
     safeDialogVisible.value = false;
     window.dispatchEvent(new Event('cash-balance:refresh'));
-    toast.add({ severity: 'success', summary: 'Saqlandi', detail: 'Mablag‘ seyfga topshirildi', life: 3000 });
+    toast.add({ severity: 'success', summary: t('common.saved'), detail: t('header.depositedToSafe'), life: 3000 });
   } catch (e) {
-    toast.add({ severity: 'error', summary: 'Xatolik', detail: extractError(e), life: 5000 });
+    toast.add({ severity: 'error', summary: t('common.error'), detail: extractError(e), life: 5000 });
   } finally {
     safeSaving.value = false;
   }
@@ -153,7 +155,7 @@ watch(() => route.fullPath, () => refreshBalance());
         <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-sky-500">
           <i class="pi pi-car" />
         </div>
-        <span class="text-lg font-semibold tracking-tight" :class="{ 'lg:hidden': desktopCollapsed }">Avto Ko‘rik</span>
+        <span class="text-lg font-semibold tracking-tight" :class="{ 'lg:hidden': desktopCollapsed }">{{ $t('header.appName') }}</span>
       </div>
 
       <nav class="flex-1 space-y-1 overflow-y-auto px-3 py-4">
@@ -167,7 +169,7 @@ watch(() => route.fullPath, () => refreshBalance());
           @click="mobileMenuOpen = false"
         >
           <i :class="item.icon" class="text-base" />
-          <span :class="{ 'lg:hidden': desktopCollapsed }">{{ item.label }}</span>
+          <span :class="{ 'lg:hidden': desktopCollapsed }">{{ $t(item.labelKey) }}</span>
         </RouterLink>
       </nav>
 
@@ -177,7 +179,7 @@ watch(() => route.fullPath, () => refreshBalance());
           @click="logout"
         >
           <i class="pi pi-sign-out text-base" />
-          <span :class="{ 'lg:hidden': desktopCollapsed }">Chiqish</span>
+          <span :class="{ 'lg:hidden': desktopCollapsed }">{{ $t('nav.logout') }}</span>
         </button>
       </div>
     </aside>
@@ -189,29 +191,30 @@ watch(() => route.fullPath, () => refreshBalance());
           <button
             class="app-icon-button flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white"
             type="button"
-            aria-label="Menyu"
+            :aria-label="$t('header.menu')"
             @click="toggleSidebar"
           >
             <i class="pi pi-bars" />
           </button>
           <button
-            v-tooltip.bottom="isDark ? 'Light mode' : 'Dark mode'"
+            v-tooltip.bottom="isDark ? $t('header.lightMode') : $t('header.darkMode')"
             class="app-icon-button flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white"
             type="button"
             @click="toggleTheme"
           >
             <i :class="isDark ? 'pi pi-sun' : 'pi pi-moon'" />
           </button>
+          <LanguageSwitcher />
         </div>
 
         <div class="flex min-w-0 items-center gap-3">
           <div v-if="cashBalance" class="hidden items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/70 px-3 py-1.5 text-xs md:flex">
-            <span class="text-slate-400">Kunlik</span>
+            <span class="text-slate-400">{{ $t('header.daily') }}</span>
             <span class="font-semibold text-emerald-300">{{ money(cashBalance.balance) }}</span>
             <span class="hidden text-slate-600 xl:inline">|</span>
-            <span class="hidden text-slate-400 xl:inline">Naqd {{ money(cashBalance.cash_income) }}</span>
-            <span class="hidden text-slate-400 xl:inline">Terminal {{ money(cashBalance.terminal_income) }}</span>
-            <span class="hidden text-slate-400 xl:inline">Seyf {{ money(cashBalance.safe_balance) }}</span>
+            <span class="hidden text-slate-400 xl:inline">{{ $t('header.cash') }} {{ money(cashBalance.cash_income) }}</span>
+            <span class="hidden text-slate-400 xl:inline">{{ $t('header.terminal') }} {{ money(cashBalance.terminal_income) }}</span>
+            <span class="hidden text-slate-400 xl:inline">{{ $t('header.safe') }} {{ money(cashBalance.safe_balance) }}</span>
           </div>
           <Button
             v-if="cashBalance"
@@ -220,10 +223,10 @@ watch(() => route.fullPath, () => refreshBalance());
             rounded
             size="small"
             :loading="balanceLoading"
-            v-tooltip.bottom="'Seyfga topshirish'"
+            v-tooltip.bottom="$t('header.safeDeposit')"
             @click="openSafeDeposit"
           />
-          <span v-if="auth.isMock" class="hidden sm:inline-flex"><Tag value="Mock data" severity="contrast" /></span>
+          <span v-if="auth.isMock" class="hidden sm:inline-flex"><Tag :value="$t('header.mockData')" severity="contrast" /></span>
           <div class="hidden min-w-0 text-right sm:block">
             <div class="truncate text-sm font-semibold leading-tight">{{ auth.user?.name }}</div>
             <div class="truncate text-xs text-slate-400">{{ roleLabel }}<span v-if="auth.user?.branch"> · {{ auth.user.branch.name }}</span></div>
@@ -237,23 +240,23 @@ watch(() => route.fullPath, () => refreshBalance());
       </main>
     </div>
 
-    <Dialog v-model:visible="safeDialogVisible" modal header="Seyfga topshirish" class="w-full max-w-md">
+    <Dialog v-model:visible="safeDialogVisible" modal :header="$t('header.safeDeposit')" class="w-full max-w-md">
       <div class="space-y-4 pt-2">
         <div class="rounded-lg border border-slate-800 bg-slate-900/60 p-3 text-sm text-slate-300">
-          Kunlik qoldiq: <span class="font-semibold text-emerald-300">{{ money(cashBalance?.balance) }} so‘m</span>
+          {{ $t('header.dailyBalance') }}: <span class="font-semibold text-emerald-300">{{ money(cashBalance?.balance) }} {{ $t('common.som') }}</span>
         </div>
         <div>
-          <label class="mb-1.5 block text-sm font-medium text-slate-300">Summa</label>
+          <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('common.amount') }}</label>
           <InputNumber v-model="safeForm.amount" class="w-full" :min="1" />
         </div>
         <div>
-          <label class="mb-1.5 block text-sm font-medium text-slate-300">Izoh</label>
+          <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('common.note') }}</label>
           <Textarea v-model="safeForm.description" class="w-full" rows="2" />
         </div>
       </div>
       <template #footer>
-        <Button label="Bekor qilish" text @click="safeDialogVisible = false" />
-        <Button label="Topshirish" icon="pi pi-check" :loading="safeSaving" @click="saveSafeDeposit" />
+        <Button :label="$t('common.cancel')" text @click="safeDialogVisible = false" />
+        <Button :label="$t('header.deposit')" icon="pi pi-check" :loading="safeSaving" @click="saveSafeDeposit" />
       </template>
     </Dialog>
   </div>

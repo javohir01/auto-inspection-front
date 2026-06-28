@@ -36,10 +36,29 @@ export interface FuelType {
   name: string;
 }
 
+export type VehicleType = 'Yengil' | 'Yuk' | 'Tirkama' | 'Mototsikl' | 'Avtobus' | 'Mikroavtobus';
+
+/**
+ * How a document type's price is resolved:
+ * - fixed: a single flat `price`.
+ * - by_vehicle_type: `price_tiers[vehicle_type]`, falling back to `price` (e.g. TEXOSMOTR).
+ * - by_cylinder_count: `price` per gas cylinder × count (e.g. GAZ).
+ */
+export type DocumentPriceType = 'fixed' | 'by_vehicle_type' | 'by_cylinder_count';
+
 export interface DocumentType {
   id: number;
   code?: string;
   name: string;
+  category?: string | null;
+  price: string | number;
+  price_type?: DocumentPriceType;
+  price_tiers?: Record<string, number> | null;
+  has_basis_document?: boolean;
+  basis_document_name?: string | null;
+  basis_document_mime?: string | null;
+  is_printable?: boolean;
+  is_active?: boolean;
 }
 
 export interface PaymentMethod {
@@ -86,7 +105,7 @@ export interface Vehicle {
   vehicle_model_id: number;
   vehicle_model?: VehicleModel;
   license_plate: string;
-  vehicle_type: 'Yengil' | 'Yuk' | 'Tirkama' | 'Mototsikl' | 'Avtobus' | 'Mikroavtobus';
+  vehicle_type: VehicleType;
   manufacture_year: number;
   body_number: string | null;
   chassis_number: string | null;

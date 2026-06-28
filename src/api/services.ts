@@ -19,7 +19,7 @@ import type {
 } from '@/types';
 
 // Payloads are dynamic form bags, so they are typed loosely on write.
-export type Payload = Record<string, any>;
+export type Payload = Record<string, any> | FormData;
 
 export interface ResourceApi<T> {
   list(params?: Record<string, unknown>): Promise<T[]>;
@@ -39,10 +39,10 @@ function resource<T>(path: string): ResourceApi<T> {
       ? mockGet<T>(path as any, id)
       : http.get(`/${path}/${id}`).then((r) => r.data.data as T),
     create: (payload) => isMockModeEnabled()
-      ? mockCreate<T>(path as any, payload)
+      ? mockCreate<T>(path as any, payload as Record<string, any>)
       : http.post(`/${path}`, payload).then((r) => r.data.data as T),
     update: (id, payload) => isMockModeEnabled()
-      ? mockUpdate<T>(path as any, id, payload)
+      ? mockUpdate<T>(path as any, id, payload as Record<string, any>)
       : http.put(`/${path}/${id}`, payload).then((r) => r.data.data as T),
     remove: (id) => isMockModeEnabled()
       ? mockRemove(path as any, id)
@@ -54,7 +54,49 @@ export const branchesApi = resource<Branch>('branches');
 export const regionsApi = resource<Region>('regions');
 export const districtsApi = resource<District>('districts');
 export const fuelTypesApi = resource<FuelType>('fuel-types');
-export const documentTypesApi = resource<DocumentType>('document-types');
+const documentTypeResource = resource<DocumentType>('document-types');
+export const documentTypesApi: ResourceApi<DocumentType> & { downloadBasisDocument(id: number): Promise<Blob> } = {
+  ...documentTypeResource,
+  create: (payload) => {
+    if (isMockModeEnabled()) {
+      const values = payload instanceof FormData ? Object.fromEntries(payload.entries()) : payload;
+      return documentTypeResource.create({
+        ...values,
+        price: Number(values.price ?? 120000),
+        has_basis_document: payload instanceof FormData && payload.has('basis_document'),
+        basis_document_name: payload instanceof FormData
+          ? (payload.get('basis_document') as File | null)?.name ?? null
+          : null,
+      });
+    }
+    return http.post('/document-types', payload).then((r) => r.data.data as DocumentType);
+  },
+  update: (id, payload) => {
+    if (isMockModeEnabled()) {
+      const values = payload instanceof FormData ? Object.fromEntries(payload.entries()) : payload;
+      return documentTypeResource.update(id, {
+        ...values,
+        price: Number(values.price ?? 120000),
+        ...(payload instanceof FormData && payload.has('basis_document')
+          ? {
+              has_basis_document: true,
+              basis_document_name: (payload.get('basis_document') as File | null)?.name ?? null,
+            }
+          : {}),
+      });
+    }
+
+    if (payload instanceof FormData) {
+      payload.set('_method', 'PUT');
+      return http.post(`/document-types/${id}`, payload).then((r) => r.data.data as DocumentType);
+    }
+
+    return http.put(`/document-types/${id}`, payload).then((r) => r.data.data as DocumentType);
+  },
+  downloadBasisDocument: (id) => http.get(`/document-types/${id}/basis-document`, {
+    responseType: 'blob',
+  }).then((r) => r.data as Blob),
+};
 export const vehicleModelsApi = resource<VehicleModel>('vehicle-models');
 export const paymentMethodsApi = resource<PaymentMethod>('payment-methods');
 export const usersApi = resource<User>('users');

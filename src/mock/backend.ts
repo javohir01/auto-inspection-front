@@ -120,11 +120,11 @@ function seedDb(): MockDb {
   ];
 
   const documentTypes: DocumentType[] = [
-    { id: 1, name: 'TEXOSMOTR' },
-    { id: 2, name: 'GAZ AKT' },
-    { id: 3, name: 'TEXOSMOTR+GAZ' },
-    { id: 4, name: 'SUG‘URTA' },
-    { id: 5, name: 'TONIROVKA' },
+    { id: 1, name: 'TEXOSMOTR', price: 120000, price_type: 'by_vehicle_type', price_tiers: { Yengil: 120000, Yuk: 250000 } },
+    { id: 2, name: 'GAZ AKT', price: 120000, price_type: 'by_cylinder_count', price_tiers: null },
+    { id: 3, name: 'TEXOSMOTR+GAZ', price: 120000, price_type: 'fixed', price_tiers: null },
+    { id: 4, name: 'SUG‘URTA', price: 120000, price_type: 'fixed', price_tiers: null },
+    { id: 5, name: 'TONIROVKA', price: 120000, price_type: 'fixed', price_tiers: null },
   ];
 
   const vehicleModels: VehicleModel[] = [
@@ -393,8 +393,12 @@ function ensureMockCompatibility(db: MockDb): void {
 
   for (const name of ['TEXOSMOTR', 'GAZ AKT', 'TEXOSMOTR+GAZ', 'SUG‘URTA', 'TONIROVKA']) {
     if (!db.documentTypes.some((type) => type.name === name)) {
-      db.documentTypes.push({ id: nextId(db.documentTypes), name });
+      db.documentTypes.push({ id: nextId(db.documentTypes), name, price: 120000 });
     }
+  }
+
+  for (const documentType of db.documentTypes) {
+    documentType.price ??= 120000;
   }
 
   for (const vehicle of db.vehicles) {

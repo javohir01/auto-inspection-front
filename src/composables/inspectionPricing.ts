@@ -1,19 +1,12 @@
-import type { DocumentType } from '@/types';
+import type { DocumentPriceType, DocumentType } from '@/types';
 
-const GAS_CYLINDER_PRICE = 120000;
-const INSURANCE_PRICE = 0;
-const TINTING_PRICE = 0;
+const DEFAULT_DOCUMENT_PRICE = 120000;
 
-const TECH_INSPECTION_PRICES: Record<string, number> = {
-  Yengil: 120000,
-  Yuk: 250000,
-  Tirkama: 120000,
-  Mototsikl: 120000,
-};
+type PricingDocumentType = Pick<DocumentType, 'code' | 'name' | 'price' | 'price_type' | 'price_tiers'>;
 
 export interface InspectionPricingInput {
-  documentType?: Pick<DocumentType, 'code' | 'name'> | null;
-  documentTypes?: Array<Pick<DocumentType, 'code' | 'name'>> | null;
+  documentType?: PricingDocumentType | null;
+  documentTypes?: PricingDocumentType[] | null;
   vehicleType?: string | null;
   gasCylinderCount?: number | null;
 }
@@ -47,21 +40,50 @@ export function hasTinting(documentType?: Pick<DocumentType, 'code' | 'name'> | 
   return kind.includes('TONIROVKA') || kind.includes('TINT');
 }
 
+function toAmount(value: unknown): number {
+  const amount = Number(value);
+  return Number.isFinite(amount) ? amount : DEFAULT_DOCUMENT_PRICE;
+}
+
+/**
+ * Resolve the price for a single document type given the vehicle type and gas
+ * cylinder count. Mirrors the backend's DocumentType::priceFor():
+ * - by_vehicle_type: price_tiers[vehicleType] ?? price.
+ * - by_cylinder_count: price per cylinder × count (minimum 1).
+ * - fixed (default): the flat price.
+ */
+export function resolveDocumentTypePrice(
+  documentType: PricingDocumentType,
+  vehicleType?: string | null,
+  gasCylinderCount?: number | null,
+): number {
+  const priceType: DocumentPriceType = documentType.price_type ?? 'fixed';
+  const basePrice = toAmount(documentType.price ?? DEFAULT_DOCUMENT_PRICE);
+
+  if (priceType === 'by_vehicle_type') {
+    const tier = vehicleType ? documentType.price_tiers?.[vehicleType] : undefined;
+    return tier != null ? toAmount(tier) : basePrice;
+  }
+
+  if (priceType === 'by_cylinder_count') {
+    return basePrice * Math.max(1, Math.trunc(Number(gasCylinderCount || 1)));
+  }
+
+  return basePrice;
+}
+
 export function calculateInspectionPaymentAmount(input: InspectionPricingInput): InspectionPricingResult {
   const documentTypes = input.documentTypes?.length ? input.documentTypes : input.documentType ? [input.documentType] : [];
   const tech = documentTypes.some(hasTechInspection);
   const gas = documentTypes.some(hasGasInspection);
   const gasCylinderCount = gas ? Math.max(1, Math.trunc(Number(input.gasCylinderCount || 1))) : 0;
-  const vehicleType = input.vehicleType ?? '';
-  const insurance = documentTypes.some(hasInsurance);
-  const tinting = documentTypes.some(hasTinting);
+  const amount = documentTypes.reduce(
+    (sum, documentType) => sum + resolveDocumentTypePrice(documentType, input.vehicleType, gasCylinderCount),
+    0,
+  );
 
   return {
-    amount:
-      (tech ? TECH_INSPECTION_PRICES[vehicleType] ?? 0 : 0)
-      + (gasCylinderCount * GAS_CYLINDER_PRICE)
-      + (insurance ? INSURANCE_PRICE : 0)
-      + (tinting ? TINTING_PRICE : 0),
+    amount,
     hasTechInspection: tech,
     hasGasInspection: gas,
     gasCylinderCount,

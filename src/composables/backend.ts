@@ -106,9 +106,9 @@ function seedDb(): MockDb {
   ];
 
   const documentTypes: DocumentType[] = [
-    { id: 1, name: 'TEXOSMOTR' },
-    { id: 2, name: 'GAZ AKT' },
-    { id: 3, name: 'TEXOSMOTR+GAZ' },
+    { id: 1, name: 'TEXOSMOTR', price: 120000 },
+    { id: 2, name: 'GAZ AKT', price: 120000 },
+    { id: 3, name: 'TEXOSMOTR+GAZ', price: 120000 },
   ];
 
   const vehicleModels: VehicleModel[] = [

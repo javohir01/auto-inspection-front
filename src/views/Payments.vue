@@ -5,6 +5,7 @@ import { paymentsApi, branchesApi, counterpartiesApi, paymentMethodsApi, inspect
 import { buildPaymentPayload, getPaymentBreakdown, getPrimaryInspectionDocumentId } from '@/composables/paymentCompat';
 import { calculateInspectionPaymentAmount } from '@/composables/inspectionPricing';
 import { useCrud } from '@/composables/useCrud';
+import { localizedName, translate as t } from '@/i18n';
 import { useAuthStore } from '@/stores/auth';
 import type { Payment, Branch, Counterparty, PaymentMethod, InspectionDocument } from '@/types';
 
@@ -18,10 +19,10 @@ const counterparties = ref<Counterparty[]>([]);
 const paymentMethods = ref<PaymentMethod[]>([]);
 const inspectionDocuments = ref<InspectionDocument[]>([]);
 const lastAutoPaymentAmount = ref(0);
-const receiptTypes = [
-  { label: 'Hisob-faktura (INV)', value: 'INV' },
-  { label: 'Fiskal chek (FTK)', value: 'FTK' },
-];
+const receiptTypes = computed(() => [
+  { label: t('payments.receiptInv'), value: 'INV' },
+  { label: t('payments.receiptFtk'), value: 'FTK' },
+]);
 
 function money(v: string | number): string {
   return new Intl.NumberFormat('uz-UZ').format(Number(v));
@@ -86,7 +87,7 @@ function openCreate() {
 
 async function handleSave() {
   if (paymentMismatch.value && !String(form.value.description || '').trim()) {
-    toast.add({ severity: 'warn', summary: 'Diqqat', detail: 'To‘lov summasi belgilangan narxdan farq qiladi. Izoh kiriting', life: 4000 });
+    toast.add({ severity: 'warn', summary: t('common.attention'), detail: t('payments.mismatchWarn'), life: 4000 });
     return;
   }
 
@@ -117,35 +118,35 @@ async function handleSave() {
   <div class="space-y-5">
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div>
-        <h1 class="text-2xl font-semibold tracking-tight">To‘lovlar</h1>
-        <p class="text-sm text-slate-400">Qabul qilingan to‘lovlar</p>
+        <h1 class="text-2xl font-semibold tracking-tight">{{ $t('payments.title') }}</h1>
+        <p class="text-sm text-slate-400">{{ $t('payments.subtitle') }}</p>
       </div>
-      <Button label="Yangi to‘lov" icon="pi pi-plus" @click="openCreate" />
+      <Button :label="$t('payments.newPayment')" icon="pi pi-plus" @click="openCreate" />
     </div>
 
     <div class="rounded-2xl border border-slate-800 bg-[#0e1320] p-2">
       <DataTable :value="items" :loading="loading" paginator :rows="10" data-key="id">
-        <template #empty><div class="p-6 text-center text-slate-500">To‘lovlar topilmadi</div></template>
-        <Column field="date" header="Sana" />
-        <Column header="Mijoz">
+        <template #empty><div class="p-6 text-center text-slate-500">{{ $t('payments.notFound') }}</div></template>
+        <Column field="date" :header="$t('common.date')" />
+        <Column :header="$t('payments.client')">
           <template #body="{ data }">{{ data.counterparty?.full_name ?? '—' }}</template>
         </Column>
-        <Column header="Jami">
-          <template #body="{ data }">{{ money(data.total_amount) }} so‘m</template>
+        <Column :header="$t('payments.total')">
+          <template #body="{ data }">{{ money(data.total_amount) }} {{ $t('common.som') }}</template>
         </Column>
-        <Column header="Naqd">
+        <Column :header="$t('payments.cash')">
           <template #body="{ data }">{{ money(getPaymentBreakdown(data).cashAmount) }}</template>
         </Column>
-        <Column header="Terminal">
+        <Column :header="$t('payments.terminal')">
           <template #body="{ data }">{{ money(getPaymentBreakdown(data).plasticAmount) }}</template>
         </Column>
-        <Column header="Holat">
-          <template #body="{ data }"><Tag :value="data.status === 'posted' ? 'To‘landi' : data.status" :severity="data.status === 'posted' ? 'success' : 'warn'" /></template>
+        <Column :header="$t('payments.status')">
+          <template #body="{ data }"><Tag :value="data.status === 'posted' ? $t('payments.paid') : data.status" :severity="data.status === 'posted' ? 'success' : 'warn'" /></template>
         </Column>
-        <Column header="Chek turi">
+        <Column :header="$t('payments.receiptType')">
           <template #body="{ data }"><Tag :value="data.receipt_type ?? '—'" /></template>
         </Column>
-        <Column header="Amallar" style="width: 8rem">
+        <Column :header="$t('common.actions')" style="width: 8rem">
           <template #body="{ data }">
             <div class="flex gap-2">
               <Button icon="pi pi-pencil" text rounded size="small" :disabled="data.status === 'posted'" @click="crud.openEdit(data)" />
@@ -156,57 +157,57 @@ async function handleSave() {
       </DataTable>
     </div>
 
-    <Dialog v-model:visible="dialogVisible" modal :header="isEdit ? 'To‘lovni tahrirlash' : 'Yangi to‘lov'" class="w-full max-w-lg">
+    <Dialog v-model:visible="dialogVisible" modal :header="isEdit ? $t('payments.editTitle') : $t('payments.newPayment')" class="w-full max-w-lg">
       <div class="grid grid-cols-1 gap-4 pt-2 sm:grid-cols-2">
         <div>
-          <label class="mb-1.5 block text-sm font-medium text-slate-300">Filial</label>
-          <Select v-model="form.branch_id" :options="branches" option-label="name" option-value="id" class="w-full" placeholder="Tanlang" />
+          <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('payments.branch') }}</label>
+          <Select v-model="form.branch_id" :options="branches" option-label="name" option-value="id" class="w-full" :placeholder="$t('common.select')" />
         </div>
         <div>
-          <label class="mb-1.5 block text-sm font-medium text-slate-300">Mijoz</label>
-          <Select v-model="form.counterparty_id" :options="counterparties" option-label="full_name" option-value="id" class="w-full" filter placeholder="Tanlang" />
+          <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('payments.client') }}</label>
+          <Select v-model="form.counterparty_id" :options="counterparties" option-label="full_name" option-value="id" class="w-full" filter :placeholder="$t('common.select')" />
         </div>
         <div class="sm:col-span-2">
-          <label class="mb-1.5 block text-sm font-medium text-slate-300">Hujjat</label>
-          <Select v-model="form.inspection_document_id" :options="inspectionDocuments" option-value="id" class="w-full" filter placeholder="Tanlang">
-            <template #option="{ option }">{{ option.doc_number }} — {{ option.vehicle?.license_plate ?? '—' }} — {{ option.document_type?.name ?? '—' }}</template>
+          <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('payments.document') }}</label>
+          <Select v-model="form.inspection_document_id" :options="inspectionDocuments" option-value="id" class="w-full" filter :placeholder="$t('common.select')">
+            <template #option="{ option }">{{ option.doc_number }} — {{ option.vehicle?.license_plate ?? '—' }} — {{ option.document_type ? localizedName(option.document_type) : '—' }}</template>
             <template #value="{ value }">
               <span v-if="value">
                 {{ inspectionDocuments.find((doc) => doc.id === value)?.doc_number }}
               </span>
-              <span v-else class="text-slate-500">Tanlang</span>
+              <span v-else class="text-slate-500">{{ $t('common.select') }}</span>
             </template>
           </Select>
         </div>
         <div>
-          <label class="mb-1.5 block text-sm font-medium text-slate-300">Sana</label>
+          <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('common.date') }}</label>
           <DatePicker v-model="form.date" class="w-full" date-format="yy-mm-dd" />
         </div>
         <div>
-          <label class="mb-1.5 block text-sm font-medium text-slate-300">Chek turi</label>
+          <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('payments.receiptType') }}</label>
           <Select v-model="form.receipt_type" :options="receiptTypes" option-label="label" option-value="value" class="w-full" />
         </div>
         <div>
-          <label class="mb-1.5 block text-sm font-medium text-slate-300">Naqd</label>
+          <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('payments.cash') }}</label>
           <InputNumber v-model="form.cash_amount" class="w-full" :min="0" />
         </div>
         <div>
-          <label class="mb-1.5 block text-sm font-medium text-slate-300">Terminal</label>
+          <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('payments.terminal') }}</label>
           <InputNumber v-model="form.plastic_amount" class="w-full" :min="0" />
         </div>
         <div v-if="paymentMismatch" class="sm:col-span-2">
-          <label class="mb-1.5 block text-sm font-medium text-slate-300">Summa farqi izohi</label>
+          <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('payments.amountDiffNote') }}</label>
           <Textarea v-model="form.description" class="w-full" rows="2" />
         </div>
         <div class="rounded-xl bg-slate-800/50 p-3 text-center sm:col-span-2">
-          <span class="text-sm text-slate-400">Jami summa: </span>
-          <span class="text-lg font-semibold text-emerald-400">{{ money(computedTotal) }} so‘m</span>
-          <div v-if="expectedPayment.amount" class="mt-1 text-sm text-slate-400">Belgilangan narx: {{ money(expectedPayment.amount) }} so‘m</div>
+          <span class="text-sm text-slate-400">{{ $t('payments.totalSum') }}: </span>
+          <span class="text-lg font-semibold text-emerald-400">{{ money(computedTotal) }} {{ $t('common.som') }}</span>
+          <div v-if="expectedPayment.amount" class="mt-1 text-sm text-slate-400">{{ $t('payments.expectedPrice') }}: {{ money(expectedPayment.amount) }} {{ $t('common.som') }}</div>
         </div>
       </div>
       <template #footer>
-        <Button label="Bekor qilish" text @click="dialogVisible = false" />
-        <Button label="Saqlash" icon="pi pi-check" :loading="saving" @click="handleSave" />
+        <Button :label="$t('common.cancel')" text @click="dialogVisible = false" />
+        <Button :label="$t('common.save')" icon="pi pi-check" :loading="saving" @click="handleSave" />
       </template>
     </Dialog>
   </div>

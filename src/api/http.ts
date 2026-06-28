@@ -1,10 +1,18 @@
 import axios from 'axios';
+import { locale } from '@/i18n';
 
 const http = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? '/api/v1',
   headers: {
     Accept: 'application/json',
   },
+});
+
+// Tell the backend which locale to resolve catalog names / messages in.
+http.interceptors.request.use((config) => {
+  config.headers['X-Locale'] = locale.value;
+  config.headers['Accept-Language'] = locale.value;
+  return config;
 });
 
 const TOKEN_KEY = 'vehicle_token';

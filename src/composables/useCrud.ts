@@ -1,6 +1,7 @@
 import { ref } from 'vue';
 import { useToast } from 'primevue/usetoast';
 import { useConfirm } from 'primevue/useconfirm';
+import { translate as t } from '@/i18n';
 import type { ResourceApi } from '@/api/services';
 
 interface WithId {
@@ -15,7 +16,7 @@ interface UseCrudOptions {
  * Encapsulates list/create/update/delete state for a single resource,
  * wiring PrimeVue toast + confirm dialogs for feedback.
  */
-export function useCrud<T extends WithId>(api: ResourceApi<T>, options: UseCrudOptions) {
+export function useCrud<T extends WithId>(api: ResourceApi<T>, _options: UseCrudOptions) {
   const toast = useToast();
   const confirm = useConfirm();
 
@@ -32,7 +33,7 @@ export function useCrud<T extends WithId>(api: ResourceApi<T>, options: UseCrudO
     try {
       items.value = await api.list(params);
     } catch {
-      toast.add({ severity: 'error', summary: 'Xatolik', detail: "Ma'lumotlarni yuklab bo‘lmadi", life: 4000 });
+      toast.add({ severity: 'error', summary: t('common.error'), detail: t('crud.loadFailed'), life: 4000 });
     } finally {
       loading.value = false;
     }
@@ -58,13 +59,13 @@ export function useCrud<T extends WithId>(api: ResourceApi<T>, options: UseCrudO
       } else {
         await api.create(form.value as Partial<T>);
       }
-      toast.add({ severity: 'success', summary: 'Saqlandi', detail: `${options.label} saqlandi`, life: 3000 });
+      toast.add({ severity: 'success', summary: t('common.saved'), detail: t('crud.savedDetail'), life: 3000 });
       dialogVisible.value = false;
       await load();
       return true;
     } catch (e: unknown) {
       const detail = extractError(e);
-      toast.add({ severity: 'error', summary: 'Xatolik', detail, life: 5000 });
+      toast.add({ severity: 'error', summary: t('common.error'), detail, life: 5000 });
       return false;
     } finally {
       saving.value = false;
@@ -73,19 +74,19 @@ export function useCrud<T extends WithId>(api: ResourceApi<T>, options: UseCrudO
 
   function remove(item: T): void {
     confirm.require({
-      message: `Rostdan ham o‘chirmoqchimisiz?`,
-      header: 'Tasdiqlang',
+      message: t('crud.confirmMessage'),
+      header: t('crud.confirmHeader'),
       icon: 'pi pi-exclamation-triangle',
-      rejectLabel: 'Bekor qilish',
-      acceptLabel: 'O‘chirish',
+      rejectLabel: t('common.cancel'),
+      acceptLabel: t('common.delete'),
       acceptClass: 'p-button-danger',
       accept: async () => {
         try {
           await api.remove(item.id);
-          toast.add({ severity: 'success', summary: 'O‘chirildi', detail: `${options.label} o‘chirildi`, life: 3000 });
+          toast.add({ severity: 'success', summary: t('common.deleted'), detail: t('crud.deletedDetail'), life: 3000 });
           await load();
         } catch (e: unknown) {
-          toast.add({ severity: 'error', summary: 'Xatolik', detail: extractError(e), life: 5000 });
+          toast.add({ severity: 'error', summary: t('common.error'), detail: extractError(e), life: 5000 });
         }
       },
     });
@@ -114,5 +115,5 @@ export function extractError(e: unknown): string {
     const first = Object.values(data.errors)[0];
     if (first?.length) return first[0];
   }
-  return data?.message ?? 'Noma’lum xatolik yuz berdi';
+  return data?.message ?? t('crud.unknownError');
 }

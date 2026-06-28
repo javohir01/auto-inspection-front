@@ -10,14 +10,15 @@ import { buildPaymentPayload } from '@/composables/paymentCompat';
 import { calculateInspectionPaymentAmount, hasGasInspection } from '@/composables/inspectionPricing';
 import { useAuthStore } from '@/stores/auth';
 import { extractError } from '@/composables/useCrud';
-import type { Region, District, VehicleModel, FuelType, DocumentType, Branch, Counterparty, Vehicle, PaymentMethod } from '@/types';
+import { localizedName, translate as t } from '@/i18n';
+import type { Region, District, VehicleModel, FuelType, DocumentType, Branch, Counterparty, Vehicle, PaymentMethod, VehicleType } from '@/types';
 
 const router = useRouter();
 const toast = useToast();
 const auth = useAuthStore();
 
 const step = ref(1);
-const steps = ['Mijoz', 'Avtomobil', 'Ko‘rik hujjati', 'To‘lov'];
+const steps = computed(() => [t('wizard.step.client'), t('wizard.step.vehicle'), t('wizard.step.document'), t('wizard.step.payment')]);
 const submitting = ref(false);
 
 // Reference data
@@ -30,14 +31,8 @@ const branches = ref<Branch[]>([]);
 const paymentMethods = ref<PaymentMethod[]>([]);
 const counterparties = ref<Counterparty[]>([]);
 const vehicles = ref<Vehicle[]>([]);
-const vehicleTypes = [
-  { label: 'Yengil', value: 'Yengil' },
-  { label: 'Yuk', value: 'Yuk' },
-  { label: 'Tirkama', value: 'Tirkama' },
-  { label: 'Mototsikl', value: 'Mototsikl' },
-  { label: 'Avtobus', value: 'Avtobus' },
-  { label: 'Mikroavtobus', value: 'Mikroavtobus' },
-];
+const VEHICLE_TYPE_VALUES: VehicleType[] = ['Yengil', 'Yuk', 'Tirkama', 'Mototsikl', 'Avtobus', 'Mikroavtobus'];
+const vehicleTypes = computed(() => VEHICLE_TYPE_VALUES.map((value) => ({ label: t('vehicleType.' + value), value })));
 const documentTypeChoices = computed(() => documentTypes.value);
 
 // Step 1 — counterparty
@@ -85,10 +80,10 @@ const selectedVehicleType = computed(() => {
   return newV.vehicle_type;
 });
 const showGasBalloonFields = computed(() => selectedDocumentTypes.value.some(hasGasInspection));
-const gasCylinderTypes = [
-  { label: 'Metan', value: 'metan' },
-  { label: 'Propan', value: 'propan' },
-];
+const gasCylinderTypes = computed(() => [
+  { label: t('wizard.metan'), value: 'metan' },
+  { label: t('wizard.propan'), value: 'propan' },
+]);
 const gasCylinder = reactive({
   type: 'metan' as 'metan' | 'propan',
   manufacturer_country: '',
@@ -133,10 +128,10 @@ const paymentDescription = computed(() => {
   return parts.length ? parts.join('\n') : null;
 });
 const lastAutoPaymentAmount = ref(0);
-const receiptTypes = [
-  { label: 'Hisob-faktura (INV)', value: 'INV' },
-  { label: 'Fiskal chek (FTK)', value: 'FTK' },
-];
+const receiptTypes = computed(() => [
+  { label: t('payments.receiptInv'), value: 'INV' },
+  { label: t('payments.receiptFtk'), value: 'FTK' },
+]);
 const modelDialogVisible = ref(false);
 const newModelName = ref('');
 const modelSaving = ref(false);
@@ -194,19 +189,19 @@ watch(expectedPayment, (pricing) => {
 
 function validateStep(): string | null {
   if (step.value === 1) {
-    if (cpMode.value === 'existing' && !selectedCounterpartyId.value) return 'Mijozni tanlang';
-    if (cpMode.value === 'new' && (!newCp.full_name || !newCp.phone || !newCp.region_id || !newCp.district_id || !newCp.address)) return 'Mijoz ma’lumotlarini to‘ldiring';
+    if (cpMode.value === 'existing' && !selectedCounterpartyId.value) return t('wizard.errSelectClient');
+    if (cpMode.value === 'new' && (!newCp.full_name || !newCp.phone || !newCp.region_id || !newCp.district_id || !newCp.address)) return t('wizard.errFillClient');
   }
   if (step.value === 2) {
-    if (vMode.value === 'existing' && !selectedVehicleId.value) return 'Avtomobilni tanlang';
-    if (vMode.value === 'new' && (!newV.license_plate || !newV.vehicle_model_id || !newV.vehicle_type || !newV.current_fuel_type_id)) return 'Avtomobil ma’lumotlarini to‘ldiring';
+    if (vMode.value === 'existing' && !selectedVehicleId.value) return t('wizard.errSelectVehicle');
+    if (vMode.value === 'new' && (!newV.license_plate || !newV.vehicle_model_id || !newV.vehicle_type || !newV.current_fuel_type_id)) return t('wizard.errFillVehicle');
   }
   if (step.value === 3) {
     if (isSimpleDocumentSelection.value) {
       doc.act_number = doc.act_number || doc.doc_number;
       doc.fuel_type_id = doc.fuel_type_id || selectedVehicleFuelTypeId.value;
     }
-    if (!doc.doc_number || (showActNumber.value && !doc.act_number) || !doc.branch_id || !selectedDocumentTypeIds.value.length || !doc.fuel_type_id) return 'Hujjat ma’lumotlarini to‘ldiring';
+    if (!doc.doc_number || (showActNumber.value && !doc.act_number) || !doc.branch_id || !selectedDocumentTypeIds.value.length || !doc.fuel_type_id) return t('wizard.errFillDocument');
     if (showGasBalloonFields.value && (
       !gasCylinder.type ||
       !gasCylinder.manufacturer_country ||
@@ -216,10 +211,10 @@ function validateStep(): string | null {
       !gasCylinder.manufacture_year ||
       !gasCylinder.working_pressure ||
       !gasCylinder.test_pressure
-    )) return 'Gaz ballon ma’lumotlarini to‘ldiring';
+    )) return t('wizard.errFillGas');
   }
   if (step.value === 4 && addPayment.value && paymentMismatch.value && !pay.description.trim()) {
-    return 'To‘lov summasi belgilangan narxdan farq qiladi. Izoh kiriting';
+    return t('payments.mismatchWarn');
   }
   return null;
 }
@@ -253,20 +248,20 @@ function toggleDocumentType(id: number): void {
 async function createVehicleModel(): Promise<void> {
   const name = newModelName.value.trim();
   if (!name) {
-    toast.add({ severity: 'warn', summary: 'Diqqat', detail: 'Rusum nomini kiriting', life: 3000 });
+    toast.add({ severity: 'warn', summary: t('common.attention'), detail: t('wizard.modelNameRequired'), life: 3000 });
     return;
   }
 
   modelSaving.value = true;
   try {
-    const created = await vehicleModelsApi.create({ name, is_active: true });
+    const created = await vehicleModelsApi.create({ name, name_uz: name, is_active: true });
     models.value = [...models.value, created];
     newV.vehicle_model_id = created.id;
     newModelName.value = '';
     modelDialogVisible.value = false;
-    toast.add({ severity: 'success', summary: 'Saqlandi', detail: 'Avtomobil rusumi qo‘shildi', life: 2500 });
+    toast.add({ severity: 'success', summary: t('common.saved'), detail: t('wizard.modelAdded'), life: 2500 });
   } catch (e) {
-    toast.add({ severity: 'error', summary: 'Xatolik', detail: extractError(e), life: 5000 });
+    toast.add({ severity: 'error', summary: t('common.error'), detail: extractError(e), life: 5000 });
   } finally {
     modelSaving.value = false;
   }
@@ -275,7 +270,7 @@ async function createVehicleModel(): Promise<void> {
 function next() {
   const err = validateStep();
   if (err) {
-    toast.add({ severity: 'warn', summary: 'Diqqat', detail: err, life: 3500 });
+    toast.add({ severity: 'warn', summary: t('common.attention'), detail: err, life: 3500 });
     return;
   }
   if (step.value < 4) step.value++;
@@ -288,7 +283,7 @@ function back() {
 async function submit() {
   const err = validateStep();
   if (err) {
-    toast.add({ severity: 'warn', summary: 'Diqqat', detail: err, life: 3500 });
+    toast.add({ severity: 'warn', summary: t('common.attention'), detail: err, life: 3500 });
     return;
   }
   submitting.value = true;
@@ -360,10 +355,10 @@ async function submit() {
       window.dispatchEvent(new Event('cash-balance:refresh'));
     }
 
-    toast.add({ severity: 'success', summary: 'Tayyor', detail: 'Ko‘rik hujjati ro‘yxatga olindi', life: 3000 });
+    toast.add({ severity: 'success', summary: t('wizard.done'), detail: t('wizard.docRegistered'), life: 3000 });
     router.push('/documents');
   } catch (e) {
-    toast.add({ severity: 'error', summary: 'Xatolik', detail: extractError(e), life: 6000 });
+    toast.add({ severity: 'error', summary: t('common.error'), detail: extractError(e), life: 6000 });
   } finally {
     submitting.value = false;
   }
@@ -373,8 +368,8 @@ async function submit() {
 <template>
   <div class="mx-auto max-w-3xl space-y-6">
     <div>
-      <h1 class="text-2xl font-semibold tracking-tight">Yangi hujjat</h1>
-      <p class="text-sm text-slate-400">Texnik ko‘rik, gaz, sug‘urta va tonirovka</p>
+      <h1 class="text-2xl font-semibold tracking-tight">{{ $t('nav.newDocument') }}</h1>
+      <p class="text-sm text-slate-400">{{ $t('wizard.subtitle') }}</p>
     </div>
 
     <!-- Step indicator -->
@@ -402,38 +397,38 @@ async function submit() {
       <!-- Step 1: Counterparty -->
       <div v-if="step === 1" class="space-y-4">
         <div class="flex gap-2">
-          <Button :label="'Mavjud mijoz'" :outlined="cpMode !== 'existing'" size="small" @click="cpMode = 'existing'" />
-          <Button :label="'Yangi mijoz'" :outlined="cpMode !== 'new'" size="small" @click="cpMode = 'new'" />
+          <Button :label="$t('wizard.existingClient')" :outlined="cpMode !== 'existing'" size="small" @click="cpMode = 'existing'" />
+          <Button :label="$t('wizard.newClient')" :outlined="cpMode !== 'new'" size="small" @click="cpMode = 'new'" />
         </div>
 
         <div v-if="cpMode === 'existing'">
-          <label class="mb-1.5 block text-sm font-medium text-slate-300">Mijozni tanlang</label>
-          <Select v-model="selectedCounterpartyId" :options="counterparties" option-label="full_name" option-value="id" class="w-full" filter placeholder="Qidirish..." />
+          <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('wizard.selectClient') }}</label>
+          <Select v-model="selectedCounterpartyId" :options="counterparties" option-label="full_name" option-value="id" class="w-full" filter :placeholder="$t('wizard.search')" />
         </div>
 
         <div v-else class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div class="sm:col-span-2">
-            <label class="mb-1.5 block text-sm font-medium text-slate-300">F.I.O</label>
+            <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('counterparties.fio') }}</label>
             <InputText v-model="newCp.full_name" class="w-full" />
           </div>
           <div>
-            <label class="mb-1.5 block text-sm font-medium text-slate-300">Telefon</label>
+            <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('counterparties.phone') }}</label>
             <InputText v-model="newCp.phone" class="w-full" />
           </div>
           <div>
-            <label class="mb-1.5 block text-sm font-medium text-slate-300">Turi</label>
+            <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('counterparties.type') }}</label>
             <InputText v-model="newCp.basis_type" class="w-full" />
           </div>
           <div>
-            <label class="mb-1.5 block text-sm font-medium text-slate-300">Viloyat</label>
-            <Select v-model="newCp.region_id" :options="regions" option-label="name_uz" option-value="id" class="w-full" placeholder="Tanlang" />
+            <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('counterparties.region') }}</label>
+            <Select v-model="newCp.region_id" :options="regions" :option-label="localizedName" option-value="id" class="w-full" :placeholder="$t('common.select')" />
           </div>
           <div>
-            <label class="mb-1.5 block text-sm font-medium text-slate-300">Tuman</label>
-            <Select v-model="newCp.district_id" :options="cpDistricts" option-label="name_uz" option-value="id" class="w-full" placeholder="Tanlang" :disabled="!newCp.region_id" />
+            <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('counterparties.district') }}</label>
+            <Select v-model="newCp.district_id" :options="cpDistricts" :option-label="localizedName" option-value="id" class="w-full" :placeholder="$t('common.select')" :disabled="!newCp.region_id" />
           </div>
           <div class="sm:col-span-2">
-            <label class="mb-1.5 block text-sm font-medium text-slate-300">Manzil</label>
+            <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('counterparties.address') }}</label>
             <Textarea v-model="newCp.address" class="w-full" rows="2" />
           </div>
         </div>
@@ -442,52 +437,52 @@ async function submit() {
       <!-- Step 2: Vehicle -->
       <div v-else-if="step === 2" class="space-y-4">
         <div class="flex gap-2">
-          <Button label="Mavjud avtomobil" :outlined="vMode !== 'existing'" size="small" :disabled="cpMode === 'new'" @click="vMode = 'existing'" />
-          <Button label="Yangi avtomobil" :outlined="vMode !== 'new'" size="small" @click="vMode = 'new'" />
+          <Button :label="$t('wizard.existingVehicle')" :outlined="vMode !== 'existing'" size="small" :disabled="cpMode === 'new'" @click="vMode = 'existing'" />
+          <Button :label="$t('wizard.newVehicle')" :outlined="vMode !== 'new'" size="small" @click="vMode = 'new'" />
         </div>
 
         <div v-if="vMode === 'existing'">
-          <label class="mb-1.5 block text-sm font-medium text-slate-300">Avtomobilni tanlang</label>
-          <Select v-model="selectedVehicleId" :options="vehicles" option-label="license_plate" option-value="id" class="w-full" filter filter-placeholder="Davlat raqami" placeholder="Davlat raqami bilan qidirish">
-            <template #option="{ option }">{{ option.license_plate }} — {{ option.vehicle_type ?? '—' }} — {{ option.vehicle_model?.name }}</template>
+          <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('wizard.selectVehicle') }}</label>
+          <Select v-model="selectedVehicleId" :options="vehicles" option-label="license_plate" option-value="id" class="w-full" filter :filter-placeholder="$t('vehicles.plate')" :placeholder="$t('wizard.searchByPlate')">
+            <template #option="{ option }">{{ option.license_plate }} — {{ option.vehicle_type ?? '—' }} — {{ option.vehicle_model ? localizedName(option.vehicle_model) : '' }}</template>
             <template #value="{ value }">
               <span v-if="value">{{ vehicles.find((v) => v.id === value)?.license_plate }}</span>
-              <span v-else class="text-slate-500">Tanlang</span>
+              <span v-else class="text-slate-500">{{ $t('common.select') }}</span>
             </template>
           </Select>
-          <p v-if="!vehicles.length" class="mt-2 text-sm text-slate-500">Bu mijozda avtomobil yo‘q. "Yangi avtomobil"ni tanlang.</p>
+          <p v-if="!vehicles.length" class="mt-2 text-sm text-slate-500">{{ $t('wizard.noVehicleHint') }}</p>
         </div>
 
         <div v-else class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label class="mb-1.5 block text-sm font-medium text-slate-300">Davlat raqami</label>
+            <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('vehicles.plate') }}</label>
             <InputText v-model="newV.license_plate" class="w-full" placeholder="01A123BC" />
           </div>
           <div>
-            <label class="mb-1.5 block text-sm font-medium text-slate-300">Rusumi</label>
+            <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('vehicles.model') }}</label>
             <div class="flex gap-2">
-              <Select v-model="newV.vehicle_model_id" :options="models" option-label="name" option-value="id" class="min-w-0 flex-1" placeholder="Tanlang" filter />
-              <Button icon="pi pi-plus" outlined v-tooltip.top="'Yangi rusum qo‘shish'" @click="modelDialogVisible = true" />
+              <Select v-model="newV.vehicle_model_id" :options="models" :option-label="localizedName" option-value="id" class="min-w-0 flex-1" :placeholder="$t('common.select')" filter />
+              <Button icon="pi pi-plus" outlined v-tooltip.top="$t('wizard.addModelTooltip')" @click="modelDialogVisible = true" />
             </div>
           </div>
           <div>
-            <label class="mb-1.5 block text-sm font-medium text-slate-300">Avtomobil turi</label>
-            <Select v-model="newV.vehicle_type" :options="vehicleTypes" option-label="label" option-value="value" class="w-full" placeholder="Tanlang" />
+            <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('vehicles.vehicleType') }}</label>
+            <Select v-model="newV.vehicle_type" :options="vehicleTypes" option-label="label" option-value="value" class="w-full" :placeholder="$t('common.select')" />
           </div>
           <div>
-            <label class="mb-1.5 block text-sm font-medium text-slate-300">Ishlab chiqarilgan yili</label>
+            <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('vehicles.manufactureYear') }}</label>
             <InputNumber v-model="newV.manufacture_year" class="w-full" :use-grouping="false" :min="1900" :max="2100" />
           </div>
           <div>
-            <label class="mb-1.5 block text-sm font-medium text-slate-300">Yoqilg‘i turi</label>
-            <Select v-model="newV.current_fuel_type_id" :options="fuelTypes" option-label="name" option-value="id" class="w-full" placeholder="Tanlang" />
+            <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('documents.fuelType') }}</label>
+            <Select v-model="newV.current_fuel_type_id" :options="fuelTypes" :option-label="localizedName" option-value="id" class="w-full" :placeholder="$t('common.select')" />
           </div>
           <div>
-            <label class="mb-1.5 block text-sm font-medium text-slate-300">Kuzov raqami</label>
+            <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('vehicles.bodyNumber') }}</label>
             <InputText v-model="newV.body_number" class="w-full" />
           </div>
           <div>
-            <label class="mb-1.5 block text-sm font-medium text-slate-300">Dvigatel raqami</label>
+            <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('vehicles.engineNumber') }}</label>
             <InputText v-model="newV.engine_number" class="w-full" />
           </div>
         </div>
@@ -496,66 +491,66 @@ async function submit() {
       <!-- Step 3: Document -->
       <div v-else-if="step === 3" class="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
-          <label class="mb-1.5 block text-sm font-medium text-slate-300">Hujjat №</label>
+          <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('documents.docNumber') }}</label>
           <InputText v-model="doc.doc_number" class="w-full" />
         </div>
         <div v-if="showActNumber">
-          <label class="mb-1.5 block text-sm font-medium text-slate-300">Akt №</label>
+          <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('documents.actNumber') }}</label>
           <InputText v-model="doc.act_number" class="w-full" />
         </div>
         <div>
-          <label class="mb-1.5 block text-sm font-medium text-slate-300">Sana</label>
+          <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('common.date') }}</label>
           <DatePicker v-model="doc.date" class="w-full" date-format="yy-mm-dd" />
         </div>
         <div>
-          <label class="mb-1.5 block text-sm font-medium text-slate-300">Filial</label>
-          <Select v-model="doc.branch_id" :options="branches" option-label="name" option-value="id" class="w-full" placeholder="Tanlang" />
+          <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('payments.branch') }}</label>
+          <Select v-model="doc.branch_id" :options="branches" option-label="name" option-value="id" class="w-full" :placeholder="$t('common.select')" />
         </div>
         <div>
-          <label class="mb-1.5 block text-sm font-medium text-slate-300">Hujjat turlari</label>
+          <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('wizard.docTypes') }}</label>
           <div class="grid grid-cols-1 gap-2 rounded-xl border border-slate-800 p-3">
             <label v-for="type in documentTypeChoices" :key="type.id" class="flex items-center gap-2 text-sm text-slate-300">
               <Checkbox :model-value="selectedDocumentTypeIds.includes(type.id)" :binary="true" @update:model-value="toggleDocumentType(type.id)" />
-              <span>{{ type.name }}</span>
+              <span>{{ localizedName(type) }} — {{ money(Number(type.price ?? 120000)) }} {{ $t('common.som') }}</span>
             </label>
           </div>
-          <div class="mt-2 text-sm text-slate-400">Umumiy summa: <span class="font-semibold text-emerald-400">{{ money(expectedPayment.amount) }} so‘m</span></div>
+          <div class="mt-2 text-sm text-slate-400">{{ $t('wizard.totalSum') }}: <span class="font-semibold text-emerald-400">{{ money(expectedPayment.amount) }} {{ $t('common.som') }}</span></div>
         </div>
         <div v-if="showFuelType">
-          <label class="mb-1.5 block text-sm font-medium text-slate-300">Yoqilg‘i turi</label>
-          <Select v-model="doc.fuel_type_id" :options="fuelTypes" option-label="name" option-value="id" class="w-full" placeholder="Tanlang" />
+          <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('documents.fuelType') }}</label>
+          <Select v-model="doc.fuel_type_id" :options="fuelTypes" :option-label="localizedName" option-value="id" class="w-full" :placeholder="$t('common.select')" />
         </div>
         <div v-if="showGasBalloonFields" class="grid grid-cols-1 gap-4 rounded-xl border border-emerald-900/60 bg-emerald-950/20 p-4 sm:col-span-2 sm:grid-cols-2">
           <div>
-            <label class="mb-1.5 block text-sm font-medium text-slate-300">Gaz ballon turi</label>
+            <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('wizard.gasType') }}</label>
             <Select v-model="gasCylinder.type" :options="gasCylinderTypes" option-label="label" option-value="value" class="w-full" />
           </div>
           <div>
-            <label class="mb-1.5 block text-sm font-medium text-slate-300">Ishlab chiqargan davlat</label>
+            <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('wizard.manufacturerCountry') }}</label>
             <InputText v-model="gasCylinder.manufacturer_country" class="w-full" />
           </div>
           <div>
-            <label class="mb-1.5 block text-sm font-medium text-slate-300">Gaz ballon raqami</label>
+            <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('wizard.gasNumber') }}</label>
             <InputText v-model="gasCylinder.cylinder_number" class="w-full" />
           </div>
           <div>
-            <label class="mb-1.5 block text-sm font-medium text-slate-300">Gaz ballon hajmi (litr)</label>
+            <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('wizard.gasVolume') }}</label>
             <InputNumber v-model="gasCylinder.volume_liters" class="w-full" :min="0" :min-fraction-digits="0" :max-fraction-digits="2" />
           </div>
           <div>
-            <label class="mb-1.5 block text-sm font-medium text-slate-300">Gaz ballon og‘irligi (kg)</label>
+            <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('wizard.gasWeight') }}</label>
             <InputNumber v-model="gasCylinder.weight_kg" class="w-full" :min="0" :min-fraction-digits="0" :max-fraction-digits="2" />
           </div>
           <div>
-            <label class="mb-1.5 block text-sm font-medium text-slate-300">Ishlab chiqarilgan yil</label>
+            <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('wizard.manufactureYear') }}</label>
             <InputNumber v-model="gasCylinder.manufacture_year" class="w-full" :use-grouping="false" :min="1900" :max="2100" />
           </div>
           <div>
-            <label class="mb-1.5 block text-sm font-medium text-slate-300">Ishchi bosimi</label>
+            <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('wizard.workingPressure') }}</label>
             <InputNumber v-model="gasCylinder.working_pressure" class="w-full" :min="0" :min-fraction-digits="0" :max-fraction-digits="2" />
           </div>
           <div>
-            <label class="mb-1.5 block text-sm font-medium text-slate-300">Sinov bosimi</label>
+            <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('wizard.testPressure') }}</label>
             <InputNumber v-model="gasCylinder.test_pressure" class="w-full" :min="0" :min-fraction-digits="0" :max-fraction-digits="2" />
           </div>
         </div>
@@ -565,54 +560,54 @@ async function submit() {
       <div v-else class="space-y-4">
         <div class="flex items-center gap-2">
           <Checkbox v-model="addPayment" input-id="addpay" :binary="true" />
-          <label for="addpay" class="text-sm text-slate-300">To‘lov qo‘shish</label>
+          <label for="addpay" class="text-sm text-slate-300">{{ $t('wizard.addPayment') }}</label>
         </div>
 
         <div v-if="addPayment" class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label class="mb-1.5 block text-sm font-medium text-slate-300">Naqd</label>
+            <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('payments.cash') }}</label>
             <InputNumber v-model="pay.cash_amount" class="w-full" :min="0" />
           </div>
           <div>
-            <label class="mb-1.5 block text-sm font-medium text-slate-300">Terminal</label>
+            <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('payments.terminal') }}</label>
             <InputNumber v-model="pay.plastic_amount" class="w-full" :min="0" />
           </div>
           <div>
-            <label class="mb-1.5 block text-sm font-medium text-slate-300">Chek turi</label>
+            <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('payments.receiptType') }}</label>
             <Select v-model="pay.receipt_type" :options="receiptTypes" option-label="label" option-value="value" class="w-full" />
           </div>
           <div>
-            <label class="mb-1.5 block text-sm font-medium text-slate-300">Z-hisobot ID</label>
+            <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('wizard.zReportId') }}</label>
             <InputText v-model="pay.z_report_id" class="w-full" />
           </div>
           <div v-if="paymentMismatch" class="sm:col-span-2">
-            <label class="mb-1.5 block text-sm font-medium text-slate-300">Summa farqi izohi</label>
+            <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('payments.amountDiffNote') }}</label>
             <Textarea v-model="pay.description" class="w-full" rows="2" />
           </div>
           <div class="rounded-xl bg-slate-800/50 p-3 text-center sm:col-span-2">
-            <span class="text-sm text-slate-400">Jami: </span>
-            <span class="text-lg font-semibold text-emerald-400">{{ money(payTotal) }} so‘m</span>
-            <div v-if="expectedPayment.amount" class="mt-1 text-sm text-slate-400">Belgilangan narx: {{ money(expectedPayment.amount) }} so‘m</div>
+            <span class="text-sm text-slate-400">{{ $t('wizard.total') }}: </span>
+            <span class="text-lg font-semibold text-emerald-400">{{ money(payTotal) }} {{ $t('common.som') }}</span>
+            <div v-if="expectedPayment.amount" class="mt-1 text-sm text-slate-400">{{ $t('payments.expectedPrice') }}: {{ money(expectedPayment.amount) }} {{ $t('common.som') }}</div>
           </div>
         </div>
       </div>
 
-      <Dialog v-model:visible="modelDialogVisible" modal header="Yangi avtomobil rusumi" class="w-full max-w-md">
+      <Dialog v-model:visible="modelDialogVisible" modal :header="$t('wizard.newModelTitle')" class="w-full max-w-md">
         <div class="space-y-3 pt-2">
-          <label class="mb-1.5 block text-sm font-medium text-slate-300">Rusum nomi</label>
-          <InputText v-model="newModelName" class="w-full" placeholder="Masalan: Chevrolet Cobalt" @keyup.enter="createVehicleModel" />
+          <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('wizard.modelName') }}</label>
+          <InputText v-model="newModelName" class="w-full" :placeholder="$t('wizard.modelNamePlaceholder')" @keyup.enter="createVehicleModel" />
         </div>
         <template #footer>
-          <Button label="Bekor qilish" text @click="modelDialogVisible = false" />
-          <Button label="Qo‘shish" icon="pi pi-check" :loading="modelSaving" @click="createVehicleModel" />
+          <Button :label="$t('common.cancel')" text @click="modelDialogVisible = false" />
+          <Button :label="$t('wizard.add')" icon="pi pi-check" :loading="modelSaving" @click="createVehicleModel" />
         </template>
       </Dialog>
 
       <!-- Controls -->
       <div class="mt-6 flex justify-between border-t border-slate-800 pt-4">
-        <Button label="Orqaga" icon="pi pi-arrow-left" text :disabled="step === 1" @click="back" />
-        <Button v-if="step < 4" label="Keyingi" icon="pi pi-arrow-right" icon-pos="right" @click="next" />
-        <Button v-else label="Yakunlash" icon="pi pi-check" :loading="submitting" @click="submit" />
+        <Button :label="$t('wizard.back')" icon="pi pi-arrow-left" text :disabled="step === 1" @click="back" />
+        <Button v-if="step < 4" :label="$t('wizard.next')" icon="pi pi-arrow-right" icon-pos="right" @click="next" />
+        <Button v-else :label="$t('wizard.finish')" icon="pi pi-check" :loading="submitting" @click="submit" />
       </div>
     </div>
   </div>

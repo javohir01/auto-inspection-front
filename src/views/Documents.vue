@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { inspectionDocumentsApi, documentTypesApi, fuelTypesApi } from '@/api/services';
 import { useCrud } from '@/composables/useCrud';
+import { localizedName, translate as t } from '@/i18n';
 import type { InspectionDocument, DocumentType, FuelType } from '@/types';
 
 const router = useRouter();
@@ -11,10 +12,10 @@ const { items, loading, saving, dialogVisible, form } = crud;
 
 function paymentTag(status?: string): { label: string; severity: string } {
   switch (status) {
-    case 'paid': return { label: 'To‘langan', severity: 'success' };
-    case 'partial': return { label: 'Qisman', severity: 'warn' };
-    case 'refunded': return { label: 'Qaytarilgan', severity: 'secondary' };
-    default: return { label: 'To‘lanmagan', severity: 'danger' };
+    case 'paid': return { label: t('status.paid'), severity: 'success' };
+    case 'partial': return { label: t('status.partial'), severity: 'warn' };
+    case 'refunded': return { label: t('status.refunded'), severity: 'secondary' };
+    default: return { label: t('status.unpaid'), severity: 'danger' };
   }
 }
 
@@ -26,10 +27,10 @@ const filters = ref<{ license_plate: string; gas_cylinder_number: string; start_
   start_date: null,
   end_date: null,
 });
-const statuses = [
-  { label: 'Kutilmoqda', value: 'pending' },
-  { label: 'Tugatilgan', value: 'completed' },
-];
+const statuses = computed(() => [
+  { label: t('status.pending'), value: 'pending' },
+  { label: t('status.completed'), value: 'completed' },
+]);
 
 function toIso(d: unknown): string | null {
   if (!d) return null;
@@ -61,52 +62,52 @@ async function handleSave() {
   <div class="space-y-5">
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div>
-        <h1 class="text-2xl font-semibold tracking-tight">Ko‘rik hujjatlari</h1>
-        <p class="text-sm text-slate-400">Texnik ko‘rik, gaz, sug‘urta va tonirovka hujjatlari ro‘yxati</p>
+        <h1 class="text-2xl font-semibold tracking-tight">{{ $t('documents.title') }}</h1>
+        <p class="text-sm text-slate-400">{{ $t('documents.subtitle') }}</p>
       </div>
-      <Button label="Yangi hujjat" icon="pi pi-plus" @click="router.push('/wizard')" />
+      <Button :label="$t('nav.newDocument')" icon="pi pi-plus" @click="router.push('/wizard')" />
     </div>
 
     <div class="grid grid-cols-1 gap-2 md:grid-cols-5">
       <IconField>
         <InputIcon class="pi pi-search" />
-        <InputText v-model="filters.license_plate" class="w-full" placeholder="Davlat raqami" @keyup.enter="applyFilters" />
+        <InputText v-model="filters.license_plate" class="w-full" :placeholder="$t('documents.plate')" @keyup.enter="applyFilters" />
       </IconField>
       <IconField>
         <InputIcon class="pi pi-search" />
-        <InputText v-model="filters.gas_cylinder_number" class="w-full" placeholder="Gaz ballon raqami" @keyup.enter="applyFilters" />
+        <InputText v-model="filters.gas_cylinder_number" class="w-full" :placeholder="$t('documents.gasCylinderNumber')" @keyup.enter="applyFilters" />
       </IconField>
-      <DatePicker v-model="filters.start_date" date-format="yy-mm-dd" placeholder="Boshlanish sanasi" class="w-full" />
-      <DatePicker v-model="filters.end_date" date-format="yy-mm-dd" placeholder="Tugash sanasi" class="w-full" />
-      <Button label="Filtrlash" outlined @click="applyFilters" />
+      <DatePicker v-model="filters.start_date" date-format="yy-mm-dd" :placeholder="$t('documents.startDate')" class="w-full" />
+      <DatePicker v-model="filters.end_date" date-format="yy-mm-dd" :placeholder="$t('documents.endDate')" class="w-full" />
+      <Button :label="$t('common.filter')" outlined @click="applyFilters" />
     </div>
 
     <div class="rounded-2xl border border-slate-800 bg-[#0e1320] p-2">
       <DataTable :value="items" :loading="loading" paginator :rows="10" data-key="id">
-        <template #empty><div class="p-6 text-center text-slate-500">Hujjatlar topilmadi</div></template>
-        <Column field="doc_number" header="Hujjat №" />
-        <Column field="act_number" header="Akt №" />
-        <Column field="date" header="Sana" />
-        <Column header="Avtomobil">
+        <template #empty><div class="p-6 text-center text-slate-500">{{ $t('documents.notFound') }}</div></template>
+        <Column field="doc_number" :header="$t('documents.docNumber')" />
+        <Column field="act_number" :header="$t('documents.actNumber')" />
+        <Column field="date" :header="$t('common.date')" />
+        <Column :header="$t('documents.vehicle')">
           <template #body="{ data }">{{ data.vehicle?.license_plate ?? '—' }}</template>
         </Column>
-        <Column header="Gaz ballon">
+        <Column :header="$t('documents.gasCylinder')">
           <template #body="{ data }">{{ data.gas_cylinder?.cylinder_number ?? '—' }}</template>
         </Column>
-        <Column header="Mijoz">
+        <Column :header="$t('documents.client')">
           <template #body="{ data }">{{ data.counterparty?.full_name ?? '—' }}</template>
         </Column>
-        <Column header="Holat">
+        <Column :header="$t('documents.status')">
           <template #body="{ data }">
-            <Tag :value="data.status === 'completed' ? 'Tugatilgan' : 'Kutilmoqda'" :severity="data.status === 'completed' ? 'success' : 'warn'" />
+            <Tag :value="data.status === 'completed' ? $t('status.completed') : $t('status.pending')" :severity="data.status === 'completed' ? 'success' : 'warn'" />
           </template>
         </Column>
-        <Column header="To‘lov">
+        <Column :header="$t('documents.payment')">
           <template #body="{ data }">
             <Tag :value="paymentTag(data.payment_status).label" :severity="paymentTag(data.payment_status).severity" />
           </template>
         </Column>
-        <Column header="Amallar" style="width: 11rem">
+        <Column :header="$t('common.actions')" style="width: 11rem">
           <template #body="{ data }">
             <div class="flex gap-2">
               <Button icon="pi pi-pencil" text rounded size="small" @click="crud.openEdit(data)" />
@@ -117,36 +118,36 @@ async function handleSave() {
       </DataTable>
     </div>
 
-    <Dialog v-model:visible="dialogVisible" modal header="Hujjatni tahrirlash" class="w-full max-w-lg">
+    <Dialog v-model:visible="dialogVisible" modal :header="$t('documents.editTitle')" class="w-full max-w-lg">
       <div class="grid grid-cols-1 gap-4 pt-2 sm:grid-cols-2">
         <div>
-          <label class="mb-1.5 block text-sm font-medium text-slate-300">Hujjat №</label>
+          <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('documents.docNumber') }}</label>
           <InputText v-model="form.doc_number" class="w-full" />
         </div>
         <div>
-          <label class="mb-1.5 block text-sm font-medium text-slate-300">Akt №</label>
+          <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('documents.actNumber') }}</label>
           <InputText v-model="form.act_number" class="w-full" />
         </div>
         <div>
-          <label class="mb-1.5 block text-sm font-medium text-slate-300">Sana</label>
+          <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('common.date') }}</label>
           <DatePicker v-model="form.date" class="w-full" date-format="yy-mm-dd" />
         </div>
         <div>
-          <label class="mb-1.5 block text-sm font-medium text-slate-300">Holat</label>
+          <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('documents.status') }}</label>
           <Select v-model="form.status" :options="statuses" option-label="label" option-value="value" class="w-full" />
         </div>
         <div>
-          <label class="mb-1.5 block text-sm font-medium text-slate-300">Hujjat turi</label>
-          <Select v-model="form.document_type_id" :options="documentTypes" option-label="name" option-value="id" class="w-full" />
+          <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('documents.docType') }}</label>
+          <Select v-model="form.document_type_id" :options="documentTypes" :option-label="localizedName" option-value="id" class="w-full" />
         </div>
         <div>
-          <label class="mb-1.5 block text-sm font-medium text-slate-300">Yoqilg‘i turi</label>
-          <Select v-model="form.fuel_type_id" :options="fuelTypes" option-label="name" option-value="id" class="w-full" />
+          <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('documents.fuelType') }}</label>
+          <Select v-model="form.fuel_type_id" :options="fuelTypes" :option-label="localizedName" option-value="id" class="w-full" />
         </div>
       </div>
       <template #footer>
-        <Button label="Bekor qilish" text @click="dialogVisible = false" />
-        <Button label="Saqlash" icon="pi pi-check" :loading="saving" @click="handleSave" />
+        <Button :label="$t('common.cancel')" text @click="dialogVisible = false" />
+        <Button :label="$t('common.save')" icon="pi pi-check" :loading="saving" @click="handleSave" />
       </template>
     </Dialog>
   </div>
