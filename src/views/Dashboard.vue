@@ -104,7 +104,7 @@ onBeforeUnmount(() => {
         <h1 class="text-2xl font-semibold tracking-tight">{{ $t('dashboard.title') }}</h1>
         <p class="text-sm text-slate-400">{{ isAdmin ? $t('dashboard.subtitleAdmin') : today }}</p>
       </div>
-      <Button v-if="auth.user?.role !== 'moderator'" :label="$t('nav.newDocument')" icon="pi pi-plus" @click="router.push('/wizard')" />
+      <Button v-if="auth.user?.role !== 'branch_manager'" :label="$t('nav.newDocument')" icon="pi pi-plus" @click="router.push('/wizard')" />
     </div>
 
     <!-- Admin: system-wide stat cards -->

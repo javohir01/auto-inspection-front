@@ -22,13 +22,13 @@ const routes: Array<RouteRecordRaw> = [
       { path: 'documents', name: 'Documents', component: () => import('@/views/Documents.vue'), meta: { roles: ['admin', 'cashier'] } },
       { path: 'payments', name: 'Payments', component: () => import('@/views/Payments.vue'), meta: { roles: ['admin', 'cashier'] } },
       // Shared
-      { path: 'counterparties', name: 'Counterparties', component: () => import('@/views/Counterparties.vue'), meta: { roles: ['admin', 'cashier', 'moderator'] } },
-      { path: 'vehicles', name: 'Vehicles', component: () => import('@/views/Vehicles.vue'), meta: { roles: ['admin', 'cashier', 'moderator'] } },
+      { path: 'counterparties', name: 'Counterparties', component: () => import('@/views/Counterparties.vue'), meta: { roles: ['admin', 'cashier', 'branch_manager'] } },
+      { path: 'vehicles', name: 'Vehicles', component: () => import('@/views/Vehicles.vue'), meta: { roles: ['admin', 'cashier', 'branch_manager'] } },
       { path: 'expenses', name: 'Expenses', component: () => import('@/views/Expenses.vue'), meta: { roles: ['admin', 'cashier'] } },
       // Admin / catalog management
       { path: 'branches', name: 'Branches', component: () => import('@/views/Branches.vue'), meta: { roles: ['admin'] } },
-      { path: 'users', name: 'Users', component: () => import('@/views/Users.vue'), meta: { roles: ['admin'] } },
-      { path: 'catalogs', name: 'Catalogs', component: () => import('@/views/Catalogs.vue'), meta: { roles: ['admin', 'moderator'] } },
+      { path: 'users', name: 'Users', component: () => import('@/views/Users.vue'), meta: { roles: ['admin', 'branch_manager'] } },
+      { path: 'catalogs', name: 'Catalogs', component: () => import('@/views/Catalogs.vue'), meta: { roles: ['admin'] } },
     ],
   },
   { path: '/:pathMatch(.*)*', redirect: '/' },

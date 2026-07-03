@@ -59,7 +59,7 @@ export default {
   'header.mockData': 'Mock ma’lumot',
 
   'role.admin': 'Administrator',
-  'role.moderator': 'Moderator',
+  'role.branch_manager': 'Filial menejeri',
   'role.cashier': 'Kassir',
 
   'login.subtitle': 'Tizimga kirish uchun ma’lumotlaringizni kiriting',
@@ -225,7 +225,7 @@ export default {
   'catalogs.newOf': 'Yangi: {label}',
   'catalogs.editOf': '{label}ni tahrirlash',
 
-  'docTypes.priceType': 'Narx turi',
+  'docTypes.priceType': 'Hisoblash tartibi',
   'docTypes.priceTypeFixed': 'Aniq narx (yagona)',
   'docTypes.priceTypeByVehicle': 'Avto turiga qarab',
   'docTypes.priceTypeByCylinder': 'Gaz balon soniga qarab',
@@ -274,7 +274,6 @@ export default {
   'wizard.workingPressure': 'Ishchi bosimi',
   'wizard.testPressure': 'Sinov bosimi',
   'wizard.addPayment': 'To‘lov qo‘shish',
-  'wizard.zReportId': 'Z-hisobot ID',
   'wizard.total': 'Jami',
   'wizard.newModelTitle': 'Yangi avtomobil rusumi',
   'wizard.modelName': 'Rusum nomi',

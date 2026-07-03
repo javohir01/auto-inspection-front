@@ -51,7 +51,6 @@ function openCreate() {
     cash_amount: 0,
     plastic_amount: 0,
     receipt_type: 'FTK',
-    z_report_id: '',
   });
 }
 
@@ -67,7 +66,6 @@ async function handleSave() {
       plasticAmount: Number(form.value.plastic_amount || 0),
       inspectionDocumentId: getPrimaryInspectionDocumentId(payment),
       receiptType: form.value.receipt_type ?? 'FTK',
-      zReportId: form.value.z_report_id || null,
       paymentMethods: paymentMethods.value,
     }),
   };

@@ -59,7 +59,7 @@ export default {
   'header.mockData': 'Mock маълумот',
 
   'role.admin': 'Администратор',
-  'role.moderator': 'Модератор',
+  'role.branch_manager': 'Филиал бошқарувчиси',
   'role.cashier': 'Кассир',
 
   'login.subtitle': 'Тизимга кириш учун маълумотларингизни киритинг',
@@ -225,7 +225,7 @@ export default {
   'catalogs.newOf': 'Янги: {label}',
   'catalogs.editOf': '{label}ни таҳрирлаш',
 
-  'docTypes.priceType': 'Нарх тури',
+  'docTypes.priceType': 'Ҳисоблаш тартиби',
   'docTypes.priceTypeFixed': 'Аниқ нарх (ягона)',
   'docTypes.priceTypeByVehicle': 'Авто турига қараб',
   'docTypes.priceTypeByCylinder': 'Газ балон сонига қараб',
@@ -274,7 +274,6 @@ export default {
   'wizard.workingPressure': 'Ишчи босими',
   'wizard.testPressure': 'Синов босими',
   'wizard.addPayment': 'Тўлов қўшиш',
-  'wizard.zReportId': 'Z-ҳисобот ID',
   'wizard.total': 'Жами',
   'wizard.newModelTitle': 'Янги автомобил русуми',
   'wizard.modelName': 'Русум номи',

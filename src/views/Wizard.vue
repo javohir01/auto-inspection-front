@@ -97,7 +97,7 @@ const gasCylinder = reactive({
 
 // Step 4 — payment
 const addPayment = ref(true);
-const pay = reactive({ cash_amount: 0, plastic_amount: 0, receipt_type: 'FTK', z_report_id: '', description: '' });
+const pay = reactive({ cash_amount: 0, plastic_amount: 0, receipt_type: 'FTK', description: '' });
 const payTotal = computed(() => Number(pay.cash_amount || 0) + Number(pay.plastic_amount || 0));
 const expectedPayment = computed(() => calculateInspectionPaymentAmount({
   documentTypes: selectedDocumentTypes.value,
@@ -348,7 +348,6 @@ async function submit() {
         plasticAmount: Number(pay.plastic_amount || 0),
         inspectionDocumentId: document.id,
         receiptType: pay.receipt_type as 'INV' | 'FTK',
-        zReportId: pay.z_report_id || null,
         paymentMethods: paymentMethods.value,
         description: paymentDescription.value,
       }));
@@ -575,10 +574,6 @@ async function submit() {
           <div>
             <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('payments.receiptType') }}</label>
             <Select v-model="pay.receipt_type" :options="receiptTypes" option-label="label" option-value="value" class="w-full" />
-          </div>
-          <div>
-            <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('wizard.zReportId') }}</label>
-            <InputText v-model="pay.z_report_id" class="w-full" />
           </div>
           <div v-if="paymentMismatch" class="sm:col-span-2">
             <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('payments.amountDiffNote') }}</label>

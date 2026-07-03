@@ -84,7 +84,7 @@ onMounted(async () => {
         <h1 class="text-2xl font-semibold tracking-tight">Boshqaruv paneli</h1>
         <p class="text-sm text-slate-400">{{ isAdmin ? 'Tizim bo‘yicha umumiy ko‘rsatkichlar' : today }}</p>
       </div>
-      <Button v-if="auth.user?.role !== 'moderator'" label="Yangi ko‘rik" icon="pi pi-plus" @click="router.push('/wizard')" />
+      <Button v-if="auth.user?.role !== 'branch_manager'" label="Yangi ko‘rik" icon="pi pi-plus" @click="router.push('/wizard')" />
     </div>
 
     <!-- Admin: system-wide stat cards -->

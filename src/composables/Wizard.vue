@@ -62,7 +62,7 @@ const doc = reactive({
 
 // Step 4 — payment
 const addPayment = ref(true);
-const pay = reactive({ cash_amount: 0, plastic_amount: 0, receipt_type: 'FTK', z_report_id: '' });
+const pay = reactive({ cash_amount: 0, plastic_amount: 0, receipt_type: 'FTK' });
 const payTotal = computed(() => Number(pay.cash_amount || 0) + Number(pay.plastic_amount || 0));
 const receiptTypes = [
   { label: 'Hisob-faktura (INV)', value: 'INV' },
@@ -177,7 +177,6 @@ async function submit() {
         plasticAmount: Number(pay.plastic_amount || 0),
         inspectionDocumentId: document.id,
         receiptType: pay.receipt_type as 'INV' | 'FTK',
-        zReportId: pay.z_report_id || null,
         paymentMethods: paymentMethods.value,
       }));
     }
@@ -353,10 +352,6 @@ async function submit() {
           <div>
             <label class="mb-1.5 block text-sm font-medium text-slate-300">Chek turi</label>
             <Select v-model="pay.receipt_type" :options="receiptTypes" option-label="label" option-value="value" class="w-full" />
-          </div>
-          <div>
-            <label class="mb-1.5 block text-sm font-medium text-slate-300">Z-hisobot ID</label>
-            <InputText v-model="pay.z_report_id" class="w-full" />
           </div>
           <div class="col-span-2 rounded-xl bg-slate-800/50 p-3 text-center">
             <span class="text-sm text-slate-400">Jami: </span>

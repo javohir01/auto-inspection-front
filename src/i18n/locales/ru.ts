@@ -59,7 +59,7 @@ export default {
   'header.mockData': 'Mock данные',
 
   'role.admin': 'Администратор',
-  'role.moderator': 'Модератор',
+  'role.branch_manager': 'Менеджер филиала',
   'role.cashier': 'Кассир',
 
   'login.subtitle': 'Введите данные для входа в систему',
@@ -225,7 +225,7 @@ export default {
   'catalogs.newOf': 'Новый: {label}',
   'catalogs.editOf': 'Редактировать: {label}',
 
-  'docTypes.priceType': 'Тип цены',
+  'docTypes.priceType': 'Порядок расчёта',
   'docTypes.priceTypeFixed': 'Фиксированная цена',
   'docTypes.priceTypeByVehicle': 'По типу авто',
   'docTypes.priceTypeByCylinder': 'По количеству газовых баллонов',
@@ -274,7 +274,6 @@ export default {
   'wizard.workingPressure': 'Рабочее давление',
   'wizard.testPressure': 'Испытательное давление',
   'wizard.addPayment': 'Добавить оплату',
-  'wizard.zReportId': 'ID Z-отчёта',
   'wizard.total': 'Итого',
   'wizard.newModelTitle': 'Новая модель авто',
   'wizard.modelName': 'Название модели',

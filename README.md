@@ -9,7 +9,7 @@ Bu repository texnik ko'rik tizimining yagona SPA frontend qismi. U backend API 
 5. Hujjatlar: texnik ko'rik, gaz, sug'urta, tonirovka
 6. To'lovlar
 7. Xarajatlar
-8. Admin/moderator kataloglari
+8. Admin kataloglari
 
 Backend repository:
 
@@ -164,7 +164,7 @@ Bu ekran backendga ketma-ket bir nechta request yuboradi.
 
 ### `views/Branches.vue`, `Users.vue`, `Catalogs.vue`
 
-- admin/moderator ekranlari
+- admin/branch_manager ekranlari
 
 ## 5. Frontend qanday data yuboradi
 
@@ -301,7 +301,7 @@ Amaliy taqsimot:
   hamma sahifalar
 - `cashier`
   operational sahifalar
-- `moderator`
+- `branch_manager`
   reference/katalog sahifalar
 
 ## 8. Mock va real backend

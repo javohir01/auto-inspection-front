@@ -59,7 +59,7 @@ export default {
   'header.mockData': 'Mock data',
 
   'role.admin': 'Administrator',
-  'role.moderator': 'Moderator',
+  'role.branch_manager': 'Branch manager',
   'role.cashier': 'Cashier',
 
   'login.subtitle': 'Enter your credentials to sign in',
@@ -200,7 +200,7 @@ export default {
   'payments.paid': 'Paid',
   'payments.mismatchWarn': 'The payment amount differs from the set price. Please add a note',
   'payments.receiptInv': 'Invoice (INV)',
-  'payments.receiptFtk': 'Fiscal receipt (FTK)',
+  'payments.receiptFtk': 'Receipt (FTK)',
 
   'catalogs.title': 'Catalogs',
   'catalogs.subtitle': 'Reference data for the system',
@@ -225,7 +225,7 @@ export default {
   'catalogs.newOf': 'New: {label}',
   'catalogs.editOf': 'Edit: {label}',
 
-  'docTypes.priceType': 'Price type',
+  'docTypes.priceType': 'Calculation method',
   'docTypes.priceTypeFixed': 'Fixed price',
   'docTypes.priceTypeByVehicle': 'By vehicle type',
   'docTypes.priceTypeByCylinder': 'By gas cylinder count',
@@ -274,7 +274,6 @@ export default {
   'wizard.workingPressure': 'Working pressure',
   'wizard.testPressure': 'Test pressure',
   'wizard.addPayment': 'Add payment',
-  'wizard.zReportId': 'Z-report ID',
   'wizard.total': 'Total',
   'wizard.newModelTitle': 'New vehicle model',
   'wizard.modelName': 'Model name',

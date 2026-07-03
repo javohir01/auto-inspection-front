@@ -58,7 +58,6 @@ export function buildPaymentPayload(input: {
   plasticAmount: number;
   inspectionDocumentId?: number | null;
   receiptType?: 'INV' | 'FTK' | null;
-  zReportId?: string | null;
   description?: string | null;
   paymentMethods: PaymentMethod[];
 }): Record<string, unknown> {
@@ -94,7 +93,6 @@ export function buildPaymentPayload(input: {
     cash_amount: input.cashAmount,
     plastic_amount: input.plasticAmount,
     receipt_type: input.receiptType ?? 'FTK',
-    z_report_id: input.zReportId || null,
     description: input.description || null,
     inspection_document_id: input.inspectionDocumentId ?? null,
     lines: lines.length ? lines : undefined,

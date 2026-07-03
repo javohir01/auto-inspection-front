@@ -79,7 +79,6 @@ function openCreate() {
     cash_amount: 0,
     plastic_amount: 0,
     receipt_type: 'FTK',
-    z_report_id: '',
     description: '',
   });
   lastAutoPaymentAmount.value = 0;
@@ -102,7 +101,6 @@ async function handleSave() {
       plasticAmount: Number(form.value.plastic_amount || 0),
       inspectionDocumentId: getPrimaryInspectionDocumentId(payment),
       receiptType: form.value.receipt_type ?? 'FTK',
-      zReportId: form.value.z_report_id || null,
       description: form.value.description || null,
       paymentMethods: paymentMethods.value,
     }),

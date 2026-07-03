@@ -1,6 +1,6 @@
 // Shared API entity types (mirror the Laravel API resources).
 
-export type Role = 'admin' | 'moderator' | 'cashier' | 'manager';
+export type Role = 'admin' | 'branch_manager' | 'cashier';
 
 export interface Branch {
   id: number;
@@ -66,7 +66,6 @@ export interface PaymentMethod {
   code: string;
   name: string;
   type: 'cash' | 'card' | 'bank' | 'online' | 'refund' | string;
-  is_fiscal: boolean;
   is_active: boolean;
 }
 
@@ -186,7 +185,6 @@ export interface Payment {
   cash_amount: string | number;
   plastic_amount: string | number;
   receipt_type: 'INV' | 'FTK' | null;
-  z_report_id: string | null;
   description?: string | null;
   posted_at?: string | null;
   cancelled_at?: string | null;

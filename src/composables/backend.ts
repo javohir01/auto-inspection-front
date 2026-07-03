@@ -119,16 +119,16 @@ function seedDb(): MockDb {
   ];
 
   const paymentMethods: PaymentMethod[] = [
-    { id: 1, code: 'CASH', name: 'Naqd', type: 'cash', is_fiscal: true, is_active: true },
-    { id: 2, code: 'UZCARD', name: 'Uzcard', type: 'card', is_fiscal: true, is_active: true },
-    { id: 3, code: 'HUMO', name: 'Humo', type: 'card', is_fiscal: true, is_active: true },
-    { id: 4, code: 'BANK', name: 'Bank', type: 'bank', is_fiscal: false, is_active: true },
+    { id: 1, code: 'CASH', name: 'Naqd', type: 'cash', is_active: true },
+    { id: 2, code: 'UZCARD', name: 'Uzcard', type: 'card', is_active: true },
+    { id: 3, code: 'HUMO', name: 'Humo', type: 'card', is_active: true },
+    { id: 4, code: 'BANK', name: 'Bank', type: 'bank', is_active: true },
   ];
 
   const users: MockUserRecord[] = [
     MOCK_ADMIN_USER,
     { id: 2, branch_id: 1, name: 'Demo Kassir', phone: '+998901112244', role: 'cashier', password: 'password' },
-    { id: 3, branch_id: 1, name: 'Demo Moderator', phone: '+998901112255', role: 'moderator', password: 'password' },
+    { id: 3, branch_id: 1, name: 'Demo Branch Manager', phone: '+998901112255', role: 'branch_manager', password: 'password' },
   ];
 
   const counterparties: Counterparty[] = [
@@ -221,7 +221,6 @@ function seedDb(): MockDb {
       cash_amount: 100000,
       plastic_amount: 80000,
       receipt_type: 'FTK',
-      z_report_id: 'Z-1001',
       lines: [
         { id: 1, payment_id: 1, payment_method_id: 1, amount: 100000 },
         { id: 2, payment_id: 1, payment_method_id: 2, amount: 80000 },
@@ -242,7 +241,6 @@ function seedDb(): MockDb {
       cash_amount: 0,
       plastic_amount: 220000,
       receipt_type: 'INV',
-      z_report_id: null,
       lines: [
         { id: 1, payment_id: 2, payment_method_id: 2, amount: 220000 },
       ],
@@ -337,10 +335,10 @@ function ensureMockAdminUser(db: MockDb): void {
 
 function defaultPaymentMethods(): PaymentMethod[] {
   return [
-    { id: 1, code: 'CASH', name: 'Naqd', type: 'cash', is_fiscal: true, is_active: true },
-    { id: 2, code: 'UZCARD', name: 'Uzcard', type: 'card', is_fiscal: true, is_active: true },
-    { id: 3, code: 'HUMO', name: 'Humo', type: 'card', is_fiscal: true, is_active: true },
-    { id: 4, code: 'BANK', name: 'Bank', type: 'bank', is_fiscal: false, is_active: true },
+    { id: 1, code: 'CASH', name: 'Naqd', type: 'cash', is_active: true },
+    { id: 2, code: 'UZCARD', name: 'Uzcard', type: 'card', is_active: true },
+    { id: 3, code: 'HUMO', name: 'Humo', type: 'card', is_active: true },
+    { id: 4, code: 'BANK', name: 'Bank', type: 'bank', is_active: true },
   ];
 }
 
@@ -562,7 +560,6 @@ function stripRelations(path: ResourceName, payload: Record<string, any>): Recor
 
   if (path === 'payments') {
     clean.total_amount = Number(clean.cash_amount || 0) + Number(clean.plastic_amount || 0);
-    clean.z_report_id = clean.z_report_id || null;
   }
 
   if (path === 'expenses') {
@@ -647,7 +644,6 @@ function normalizePaymentPayload(
     cash_amount: cashAmount,
     plastic_amount: plasticAmount,
     receipt_type: clean.receipt_type ?? existing?.receipt_type ?? 'FTK',
-    z_report_id: clean.z_report_id || null,
     description: clean.description ?? null,
     posted_at: clean.posted_at ?? null,
     cancelled_at: clean.cancelled_at ?? null,

@@ -1,20 +1,28 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { usersApi, branchesApi } from '@/api/services';
+import { useAuthStore } from '@/stores/auth';
 import { useCrud } from '@/composables/useCrud';
 import { translate as t } from '@/i18n';
 import type { User, Branch } from '@/types';
 
 const crud = useCrud<User>(usersApi, { label: 'Xodim' });
 const { items, loading, saving, dialogVisible, isEdit, form } = crud;
+const auth = useAuthStore();
 
 const branches = ref<Branch[]>([]);
 const roles = [
   { labelKey: 'role.admin', value: 'admin' },
-  { labelKey: 'role.moderator', value: 'moderator' },
+  { labelKey: 'role.branch_manager', value: 'branch_manager' },
   { labelKey: 'role.cashier', value: 'cashier' },
 ];
-const roleOptions = computed(() => roles.map((r) => ({ label: t(r.labelKey), value: r.value })));
+const roleOptions = computed(() => {
+  const options = roles.map((r) => ({ label: t(r.labelKey), value: r.value }));
+
+  return auth.user?.role === 'branch_manager'
+    ? options.filter((option) => option.value === 'cashier')
+    : options;
+});
 
 onMounted(async () => {
   branches.value = await branchesApi.list();
@@ -56,7 +64,7 @@ function roleLabel(role: string) {
           <template #body="{ data }">
             <div class="flex gap-2">
               <Button icon="pi pi-pencil" text rounded size="small" @click="crud.openEdit(data)" />
-              <Button icon="pi pi-trash" text rounded severity="danger" size="small" @click="crud.remove(data)" />
+              <Button v-if="auth.user?.role === 'admin'" icon="pi pi-trash" text rounded severity="danger" size="small" @click="crud.remove(data)" />
             </div>
           </template>
         </Column>

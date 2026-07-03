@@ -47,11 +47,11 @@ const allNav: NavItem[] = [
   { labelKey: 'nav.payments', icon: 'pi pi-credit-card', to: '/payments', roles: ['admin', 'cashier'] },
   { labelKey: 'nav.expenses', icon: 'pi pi-wallet', to: '/expenses', roles: ['admin', 'cashier'] },
   { labelKey: 'nav.newDocument', icon: 'pi pi-plus-circle', to: '/wizard', roles: ['admin', 'cashier'] },
-  { labelKey: 'nav.counterparties', icon: 'pi pi-users', to: '/counterparties', roles: ['admin', 'cashier', 'moderator'] },
-  { labelKey: 'nav.vehicles', icon: 'pi pi-car', to: '/vehicles', roles: ['admin', 'cashier', 'moderator'] },
+  { labelKey: 'nav.counterparties', icon: 'pi pi-users', to: '/counterparties', roles: ['admin', 'cashier', 'branch_manager'] },
+  { labelKey: 'nav.vehicles', icon: 'pi pi-car', to: '/vehicles', roles: ['admin', 'cashier', 'branch_manager'] },
   { labelKey: 'nav.branches', icon: 'pi pi-building', to: '/branches', roles: ['admin'] },
-  { labelKey: 'nav.users', icon: 'pi pi-id-card', to: '/users', roles: ['admin'] },
-  { labelKey: 'nav.catalogs', icon: 'pi pi-database', to: '/catalogs', roles: ['admin', 'moderator'] },
+  { labelKey: 'nav.users', icon: 'pi pi-id-card', to: '/users', roles: ['admin', 'branch_manager'] },
+  { labelKey: 'nav.catalogs', icon: 'pi pi-database', to: '/catalogs', roles: ['admin'] },
 ];
 
 const nav = computed(() => {
@@ -67,7 +67,7 @@ const initials = computed(() => {
 const roleLabel = computed(() => {
   switch (auth.user?.role) {
     case 'admin': return t('role.admin');
-    case 'moderator': return t('role.moderator');
+    case 'branch_manager': return t('role.branch_manager');
     case 'cashier': return t('role.cashier');
     default: return '';
   }
@@ -78,7 +78,7 @@ function money(v: string | number | null | undefined): string {
 }
 
 async function refreshBalance() {
-  if (!auth.user || !['admin', 'cashier'].includes(auth.user.role)) return;
+  if (!auth.user || !['admin', 'branch_manager', 'cashier'].includes(auth.user.role)) return;
 
   balanceLoading.value = true;
   try {
