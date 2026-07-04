@@ -64,16 +64,11 @@ interface MockSafeDeposit {
 
 const DB_KEY = 'vehicle_mock_db';
 const MODE_KEY = 'vehicle_mock_mode';
-const MOCK_ADMIN_PHONE = '998901112233';
-const MOCK_ADMIN_PASSWORD = 'password';
-const MOCK_ADMIN_USER: MockUserRecord = {
-  id: 1,
-  branch_id: 1,
-  name: 'Demo Admin',
-  phone: `+${MOCK_ADMIN_PHONE}`,
-  role: 'admin',
-  password: MOCK_ADMIN_PASSWORD,
-};
+const MOCK_USERS: MockUserRecord[] = [
+  { id: 1, branch_id: 1, name: 'Demo Admin', phone: '+998901112233', role: 'admin', password: 'password' },
+  { id: 2, branch_id: 1, name: 'Demo Kassir', phone: '+998901112244', role: 'cashier', password: 'password' },
+  { id: 3, branch_id: 1, name: 'Demo Branch Manager', phone: '+998901112255', role: 'branch_manager', password: 'password' },
+];
 
 const today = '2026-06-17';
 
@@ -143,11 +138,7 @@ function seedDb(): MockDb {
     { id: 6, code: 'CLICK', name: 'Click', type: 'online', is_active: false },
   ];
 
-  const users: MockUserRecord[] = [
-    MOCK_ADMIN_USER,
-    { id: 2, branch_id: 1, name: 'Demo Kassir', phone: '+998901112244', role: 'cashier', password: 'password' },
-    { id: 3, branch_id: 1, name: 'Demo Branch Manager', phone: '+998901112255', role: 'branch_manager', password: 'password' },
-  ];
+  const users: MockUserRecord[] = [...MOCK_USERS];
 
   const counterparties: Counterparty[] = [
     {
@@ -200,8 +191,7 @@ function seedDb(): MockDb {
   const inspectionDocuments: InspectionDocument[] = [
     {
       id: 1,
-      doc_number: 'DOC-2401',
-      act_number: 'ACT-2401',
+      doc_number: 'DOC-000001',
       date: today,
       branch_id: 1,
       vehicle_id: 1,
@@ -225,8 +215,7 @@ function seedDb(): MockDb {
     },
     {
       id: 2,
-      doc_number: 'DOC-2402',
-      act_number: 'ACT-2402',
+      doc_number: 'DOC-000002',
       date: today,
       branch_id: 2,
       vehicle_id: 2,
@@ -332,7 +321,7 @@ function readDb(): MockDb {
   }
   const db = JSON.parse(raw) as MockDb;
   ensureMockCompatibility(db);
-  ensureMockAdminUser(db);
+  ensureMockUsers(db);
   return db;
 }
 
@@ -344,25 +333,33 @@ function normalizePhone(value: string): string {
   return value.replace(/\D/g, '');
 }
 
-function isMockAdminCredentials(phone: string, password: string): boolean {
-  return normalizePhone(phone) === MOCK_ADMIN_PHONE && password === MOCK_ADMIN_PASSWORD;
+export function isMockUserCredentials(phone: string, password: string): boolean {
+  return MOCK_USERS.some((user) => normalizePhone(user.phone) === normalizePhone(phone) && user.password === password);
 }
 
-function ensureMockAdminUser(db: MockDb): void {
-  const existing = db.users.find((user) => normalizePhone(user.phone) === MOCK_ADMIN_PHONE);
-  if (existing) {
-    Object.assign(existing, {
-      ...MOCK_ADMIN_USER,
-      id: existing.id,
-      created_at: existing.created_at,
-      updated_at: existing.updated_at,
-    });
-    writeDb(db);
-    return;
+function ensureMockUsers(db: MockDb): void {
+  let changed = false;
+
+  for (const mockUser of MOCK_USERS) {
+    const existing = db.users.find((user) => normalizePhone(user.phone) === normalizePhone(mockUser.phone));
+    if (existing) {
+      Object.assign(existing, {
+        ...mockUser,
+        id: existing.id,
+        created_at: existing.created_at,
+        updated_at: existing.updated_at,
+      });
+      changed = true;
+      continue;
+    }
+
+    db.users.unshift({ ...mockUser, id: nextId(db.users) });
+    changed = true;
   }
 
-  db.users.unshift({ ...MOCK_ADMIN_USER, id: nextId(db.users) });
-  writeDb(db);
+  if (changed) {
+    writeDb(db);
+  }
 }
 
 function defaultPaymentMethods(): PaymentMethod[] {
@@ -401,6 +398,11 @@ function ensureMockCompatibility(db: MockDb): void {
 
   for (const vehicle of db.vehicles) {
     vehicle.vehicle_type ??= 'Yengil';
+  }
+
+  for (const document of db.inspectionDocuments as Array<InspectionDocument & { act_number?: string }>) {
+    delete document.act_number;
+    document.doc_number ||= nextDocumentNumber(db);
   }
 
   db.payments = db.payments.map((payment) => normalizePaymentPayload(payment as Record<string, any>, db, payment));
@@ -607,6 +609,15 @@ function normalizeUserPayload(payload: Record<string, any>, existing?: MockUserR
   };
 }
 
+function nextDocumentNumber(db: MockDb): string {
+  const max = db.inspectionDocuments.reduce((current, document) => {
+    const match = /^DOC-(\d{6})$/.exec(document.doc_number);
+    return match ? Math.max(current, Number(match[1])) : current;
+  }, 0);
+
+  return `DOC-${String(max + 1).padStart(6, '0')}`;
+}
+
 function stripRelations(path: ResourceName, payload: Record<string, any>): Record<string, any> {
   const clean = { ...payload };
   delete clean.branch;
@@ -622,6 +633,7 @@ function stripRelations(path: ResourceName, payload: Record<string, any>): Recor
   delete clean.inspection_document;
   delete clean.generated_documents;
   delete clean.payment_method;
+  delete clean.act_number;
 
   if (Array.isArray(clean.lines)) {
     clean.lines = clean.lines.map((line: Record<string, any>) => {
@@ -778,9 +790,7 @@ export async function createMockAdminUser(payload: { name: string; phone: string
 
 export async function mockLogin(phone: string, password: string): Promise<{ token: string; user: User }> {
   const db = readDb();
-  const user = isMockAdminCredentials(phone, password)
-    ? db.users.find((item) => normalizePhone(item.phone) === MOCK_ADMIN_PHONE)
-    : null;
+  const user = db.users.find((item) => normalizePhone(item.phone) === normalizePhone(phone) && item.password === password);
   if (!user) {
     throw new Error('Telefon yoki parol noto‘g‘ri');
   }
@@ -842,6 +852,17 @@ export async function mockCreate<T>(path: ResourceName, payload: Record<string, 
     created = normalizeUserPayload({ ...clean, id });
   } else if (path === 'payments') {
     created = normalizePaymentPayload({ ...payload, id }, db);
+  } else if (path === 'inspection-documents') {
+    created = { ...clean, id, doc_number: clean.doc_number || nextDocumentNumber(db) };
+  } else if (path === 'generated-documents') {
+    created = {
+      ...clean,
+      id,
+      status: clean.status || 'generated',
+      generated_at: clean.generated_at || new Date().toISOString(),
+      file_path: clean.file_path || `mock-generated-documents/${clean.document_number}.pdf`,
+      download_url: null,
+    };
   } else {
     created = { ...clean, id };
   }

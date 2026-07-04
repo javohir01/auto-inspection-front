@@ -131,7 +131,6 @@ export interface GasCylinder {
 export interface InspectionDocument {
   id: number;
   doc_number: string;
-  act_number: string;
   date: string;
   branch_id: number;
   branch?: Branch;
@@ -160,6 +159,10 @@ export interface GeneratedDocument {
   document_type?: DocumentType;
   document_number: string;
   status: 'draft' | 'generated' | 'printed' | 'cancelled' | string;
+  generated_at?: string | null;
+  printed_at?: string | null;
+  file_path?: string | null;
+  download_url?: string | null;
   payload?: Record<string, unknown> | null;
   created_by?: number | null;
   created_at?: string;

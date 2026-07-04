@@ -12,6 +12,11 @@ const { isDark, toggleTheme } = useTheme();
 const phone = ref('998901112233');
 const password = ref('password');
 const error = ref('');
+const demoCredentials = [
+  { role: 'Admin', phone: '998901112233', password: 'password' },
+  { role: 'Kassir', phone: '998901112244', password: 'password' },
+  { role: 'Filial manager', phone: '998901112255', password: 'password' },
+];
 
 async function submit() {
   error.value = '';
@@ -76,14 +81,23 @@ async function submit() {
         </form>
       </div>
 
-      <p class="mt-6 text-center text-xs text-slate-500">
-        <template v-if="auth.isMock">
-          {{ $t('login.mockLogin') }}: <span class="text-slate-300">998901112233</span> · {{ $t('login.password') }}: <span class="text-slate-300">password</span>
-        </template>
-        <template v-else>
-          {{ $t('login.testLogin') }}: <span class="text-slate-300">+998901112233</span> · {{ $t('login.password') }}: <span class="text-slate-300">password</span>
-        </template>
-      </p>
+      <!-- <div class="mt-6 space-y-2 text-xs text-slate-500">
+        <p class="text-center">{{ auth.isMock ? $t('login.mockLogin') : $t('login.testLogin') }}</p>
+        <div class="space-y-1 rounded-xl border border-slate-800 bg-[#0e1320] p-3">
+          <div
+            v-for="credential in demoCredentials"
+            :key="credential.phone"
+            class="flex items-center justify-between gap-3"
+          >
+            <span class="font-medium text-slate-300">{{ credential.role }}</span>
+            <span class="text-right">
+              <span class="text-slate-300">{{ credential.phone }}</span>
+              <span class="px-1 text-slate-600">/</span>
+              <span class="text-slate-300">{{ credential.password }}</span>
+            </span>
+          </div>
+        </div>
+      </div> -->
     </div>
   </div>
 </template>

@@ -204,7 +204,7 @@ Bu ekran backendga ketma-ket bir nechta request yuboradi.
 
 ### Service document create
 
-Wizarddagi `Hujjat turlari` ro‘yxatida texnik ko‘rik, gaz, sug‘urta va tonirovka turlari tanlanadi. Sug‘urta va tonirovka uchun forma hozircha umumiy hujjat formasining ixcham varianti: agar faqat shu oddiy turlar tanlansa, `Akt №` va `Yoqilg‘i turi` foydalanuvchidan so‘ralmaydi, lekin backend contract majburiy bo‘lgani uchun avtomatik to‘ldiriladi.
+Wizarddagi `Hujjat turlari` ro‘yxatida texnik ko‘rik, gaz, sug‘urta va tonirovka turlari tanlanadi. Hujjat raqami backend tomonidan avtomatik generatsiya qilinadi.
 
 Wizardda bir nechta hujjat turini tanlash mumkin. Birinchi tanlangan tur asosiy `inspection_documents.document_type_id` sifatida yuboriladi, tanlangan barcha turlar esa shu hujjatga bog‘langan `generated_documents` yozuvlari sifatida saqlanadi. Umumiy summa tanlangan hujjat turlari narxlarining yig‘indisi sifatida ko‘rsatiladi.
 
@@ -212,8 +212,6 @@ Avtomobil yaratish bosqichida rusum selecti yonidagi `+` tugmasi orqali yangi ru
 
 ```json
 {
-  "doc_number": "DOC-0001",
-  "act_number": "ACT-0001",
   "date": "2026-06-18",
   "branch_id": 1,
   "vehicle_id": 1,

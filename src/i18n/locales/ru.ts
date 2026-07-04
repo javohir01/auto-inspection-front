@@ -98,7 +98,6 @@ export default {
   'documents.endDate': 'Дата окончания',
   'documents.notFound': 'Документы не найдены',
   'documents.docNumber': 'Документ №',
-  'documents.actNumber': 'Акт №',
   'documents.vehicle': 'Автомобиль',
   'documents.gasCylinder': 'Газовый баллон',
   'documents.client': 'Клиент',

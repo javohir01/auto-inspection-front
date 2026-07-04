@@ -1,23 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { inspectionDocumentsApi, documentTypesApi, fuelTypesApi } from '@/api/services';
+import { inspectionDocumentsApi, documentTypesApi, fuelTypesApi, generatedDocumentsApi } from '@/api/services';
 import { useCrud } from '@/composables/useCrud';
 import { localizedName, translate as t } from '@/i18n';
-import type { InspectionDocument, DocumentType, FuelType } from '@/types';
+import type { InspectionDocument, DocumentType, FuelType, GeneratedDocument } from '@/types';
 
 const router = useRouter();
 const crud = useCrud<InspectionDocument>(inspectionDocumentsApi, { label: 'Hujjat' });
 const { items, loading, saving, dialogVisible, form } = crud;
-
-function paymentTag(status?: string): { label: string; severity: string } {
-  switch (status) {
-    case 'paid': return { label: t('status.paid'), severity: 'success' };
-    case 'partial': return { label: t('status.partial'), severity: 'warn' };
-    case 'refunded': return { label: t('status.refunded'), severity: 'secondary' };
-    default: return { label: t('status.unpaid'), severity: 'danger' };
-  }
-}
 
 const documentTypes = ref<DocumentType[]>([]);
 const fuelTypes = ref<FuelType[]>([]);
@@ -56,6 +47,16 @@ async function handleSave() {
   form.value.date = toIso(form.value.date);
   await crud.save();
 }
+
+async function downloadGeneratedDocument(document: GeneratedDocument) {
+  const blob = await generatedDocumentsApi.download(document.id);
+  const url = URL.createObjectURL(blob);
+  const link = window.document.createElement('a');
+  link.href = url;
+  link.download = `${document.document_number}.pdf`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
 </script>
 
 <template>
@@ -86,7 +87,6 @@ async function handleSave() {
       <DataTable :value="items" :loading="loading" paginator :rows="10" data-key="id">
         <template #empty><div class="p-6 text-center text-slate-500">{{ $t('documents.notFound') }}</div></template>
         <Column field="doc_number" :header="$t('documents.docNumber')" />
-        <Column field="act_number" :header="$t('documents.actNumber')" />
         <Column field="date" :header="$t('common.date')" />
         <Column :header="$t('documents.vehicle')">
           <template #body="{ data }">{{ data.vehicle?.license_plate ?? '—' }}</template>
@@ -102,9 +102,20 @@ async function handleSave() {
             <Tag :value="data.status === 'completed' ? $t('status.completed') : $t('status.pending')" :severity="data.status === 'completed' ? 'success' : 'warn'" />
           </template>
         </Column>
-        <Column :header="$t('documents.payment')">
+        <Column header="Generated hujjatlar">
           <template #body="{ data }">
-            <Tag :value="paymentTag(data.payment_status).label" :severity="paymentTag(data.payment_status).severity" />
+            <div v-if="data.generated_documents?.length" class="flex flex-wrap gap-2">
+              <Button
+                v-for="document in data.generated_documents"
+                :key="document.id"
+                :label="document.document_type ? localizedName(document.document_type) : document.document_number"
+                icon="pi pi-download"
+                size="small"
+                outlined
+                @click="downloadGeneratedDocument(document)"
+              />
+            </div>
+            <span v-else class="text-slate-500">—</span>
           </template>
         </Column>
         <Column :header="$t('common.actions')" style="width: 11rem">
@@ -122,11 +133,7 @@ async function handleSave() {
       <div class="grid grid-cols-1 gap-4 pt-2 sm:grid-cols-2">
         <div>
           <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('documents.docNumber') }}</label>
-          <InputText v-model="form.doc_number" class="w-full" />
-        </div>
-        <div>
-          <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('documents.actNumber') }}</label>
-          <InputText v-model="form.act_number" class="w-full" />
+          <InputText v-model="form.doc_number" class="w-full" disabled />
         </div>
         <div>
           <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('common.date') }}</label>

@@ -1,18 +1,11 @@
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
 import http, { getToken, setToken } from '@/api/http';
-import { createMockAdminUser, enableMockMode, isMockModeEnabled, mockFetchMe, mockLogin, mockLogout } from '@/mock/backend';
+import { createMockAdminUser, disableMockMode, enableMockMode, isMockModeEnabled, isMockUserCredentials, mockFetchMe, mockLogin, mockLogout } from '@/mock/backend';
 import type { User } from '@/types';
 
-const TEST_PHONE = '998901112233';
-const TEST_PASSWORD = 'password';
-
-function normalizePhone(value: string): string {
-  return value.replace(/\D/g, '');
-}
-
 function isTestLogin(phone: string, password: string): boolean {
-  return normalizePhone(phone) === TEST_PHONE && password === TEST_PASSWORD;
+  return isMockUserCredentials(phone, password);
 }
 
 function isMockToken(token: string | null): boolean {
@@ -26,16 +19,13 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isAuthenticated = computed(() => !!token.value);
   const isAdmin = computed(() => user.value?.role === 'admin');
-  const isMock = computed(() => isMockModeEnabled() || isMockToken(token.value));
+  const isMock = computed(() => isMockToken(token.value) || (!token.value && isMockModeEnabled()));
 
   async function login(phone: string, password: string): Promise<void> {
     loading.value = true;
     try {
       if (isTestLogin(phone, password)) {
         enableMockMode();
-      }
-
-      if (isMockModeEnabled()) {
         const data = await mockLogin(phone, password);
         token.value = data.token;
         setToken(data.token);
@@ -43,6 +33,7 @@ export const useAuthStore = defineStore('auth', () => {
         return;
       }
 
+      disableMockMode();
       const { data } = await http.post('/login', { phone, password });
       token.value = data.token;
       setToken(data.token);
@@ -53,17 +44,18 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function fetchMe(): Promise<void> {
-    if (isMock.value) {
+    if (isMockToken(token.value)) {
       user.value = await mockFetchMe(token.value);
       return;
     }
 
+    disableMockMode();
     const { data } = await http.get('/me');
     user.value = data.data ?? data;
   }
 
   async function logout(): Promise<void> {
-    if (isMock.value) {
+    if (isMockToken(token.value)) {
       await mockLogout(token.value);
     } else {
       try {

@@ -98,7 +98,6 @@ export default {
   'documents.endDate': 'End date',
   'documents.notFound': 'No documents found',
   'documents.docNumber': 'Document #',
-  'documents.actNumber': 'Act #',
   'documents.vehicle': 'Vehicle',
   'documents.gasCylinder': 'Gas cylinder',
   'documents.client': 'Client',

@@ -51,8 +51,6 @@ const newV = reactive({
 
 // Step 3 — document
 const doc = reactive({
-  doc_number: '',
-  act_number: '',
   date: new Date() as Date,
   branch_id: (auth.user?.branch_id ?? null) as number | null,
   document_type_id: null as number | null,
@@ -113,7 +111,7 @@ function validateStep(): string | null {
     if (vMode.value === 'new' && (!newV.license_plate || !newV.vehicle_model_id || !newV.current_fuel_type_id)) return 'Avtomobil ma’lumotlarini to‘ldiring';
   }
   if (step.value === 3) {
-    if (!doc.doc_number || !doc.act_number || !doc.branch_id || !doc.document_type_id || !doc.fuel_type_id) return 'Hujjat ma’lumotlarini to‘ldiring';
+    if (!doc.branch_id || !doc.document_type_id || !doc.fuel_type_id) return 'Hujjat ma’lumotlarini to‘ldiring';
   }
   return null;
 }
@@ -155,8 +153,6 @@ async function submit() {
 
     // 3) Inspection document
     const document = await inspectionDocumentsApi.create({
-      doc_number: doc.doc_number,
-      act_number: doc.act_number,
       date: toIso(doc.date),
       branch_id: doc.branch_id!,
       vehicle_id: vehicleId!,
@@ -307,14 +303,6 @@ async function submit() {
 
       <!-- Step 3: Document -->
       <div v-else-if="step === 3" class="grid grid-cols-2 gap-4">
-        <div>
-          <label class="mb-1.5 block text-sm font-medium text-slate-300">Hujjat №</label>
-          <InputText v-model="doc.doc_number" class="w-full" />
-        </div>
-        <div>
-          <label class="mb-1.5 block text-sm font-medium text-slate-300">Akt №</label>
-          <InputText v-model="doc.act_number" class="w-full" />
-        </div>
         <div>
           <label class="mb-1.5 block text-sm font-medium text-slate-300">Sana</label>
           <DatePicker v-model="doc.date" class="w-full" date-format="yy-mm-dd" />

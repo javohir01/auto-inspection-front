@@ -98,7 +98,6 @@ export default {
   'documents.endDate': 'Тугаш санаси',
   'documents.notFound': 'Ҳужжатлар топилмади',
   'documents.docNumber': 'Ҳужжат №',
-  'documents.actNumber': 'Акт №',
   'documents.vehicle': 'Автомобил',
   'documents.gasCylinder': 'Газ баллон',
   'documents.client': 'Мижоз',

@@ -98,7 +98,6 @@ export default {
   'documents.endDate': 'Tugash sanasi',
   'documents.notFound': 'Hujjatlar topilmadi',
   'documents.docNumber': 'Hujjat №',
-  'documents.actNumber': 'Akt №',
   'documents.vehicle': 'Avtomobil',
   'documents.gasCylinder': 'Gaz ballon',
   'documents.client': 'Mijoz',

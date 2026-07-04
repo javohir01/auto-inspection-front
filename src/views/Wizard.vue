@@ -11,7 +11,7 @@ import { calculateInspectionPaymentAmount, hasGasInspection } from '@/composable
 import { useAuthStore } from '@/stores/auth';
 import { extractError } from '@/composables/useCrud';
 import { localizedName, translate as t } from '@/i18n';
-import type { Region, District, VehicleModel, FuelType, DocumentType, Branch, Counterparty, Vehicle, PaymentMethod, VehicleType } from '@/types';
+import type { Region, District, VehicleModel, FuelType, DocumentType, Branch, Counterparty, Vehicle, PaymentMethod, VehicleType, GeneratedDocument } from '@/types';
 
 const router = useRouter();
 const toast = useToast();
@@ -40,6 +40,8 @@ const cpMode = ref<'existing' | 'new'>('existing');
 const selectedCounterpartyId = ref<number | null>(null);
 const newCp = reactive({ full_name: '', phone: '', region_id: null as number | null, district_id: null as number | null, address: '', basis_type: 'Jismoniy shaxs' });
 const cpDistricts = computed(() => districts.value.filter((d) => d.region_id === newCp.region_id));
+const plateSearch = ref('');
+const plateSearching = ref(false);
 
 // Step 2 — vehicle
 const vMode = ref<'existing' | 'new'>('new');
@@ -57,8 +59,6 @@ const newV = reactive({
 
 // Step 3 — document
 const doc = reactive({
-  doc_number: '',
-  act_number: '',
   date: new Date() as Date,
   branch_id: (auth.user?.branch_id ?? null) as number | null,
   document_type_id: null as number | null,
@@ -69,9 +69,10 @@ const selectedDocumentTypeIds = ref<number[]>([]);
 const selectedDocumentTypes = computed(() => documentTypes.value.filter((type) => selectedDocumentTypeIds.value.includes(type.id)));
 const selectedDocumentKinds = computed(() => selectedDocumentTypes.value.map((type) => `${type.code ?? ''} ${type.name ?? ''}`.toUpperCase()));
 const hasRegularInspectionDocument = computed(() => selectedDocumentKinds.value.some((kind) => kind.includes('TEXOSMOTR') || kind.includes('GAZ')));
+const isInsuranceOnlySelection = computed(() => selectedDocumentKinds.value.length > 0 && selectedDocumentKinds.value.every((kind) => kind.includes('SUG')));
 const isSimpleDocumentSelection = computed(() => selectedDocumentTypeIds.value.length > 0 && !hasRegularInspectionDocument.value);
-const showActNumber = computed(() => !isSimpleDocumentSelection.value);
 const showFuelType = computed(() => !isSimpleDocumentSelection.value);
+const insuranceValidUntil = ref<Date | null>(null);
 const selectedVehicleType = computed(() => {
   if (vMode.value === 'existing') {
     return vehicles.value.find((vehicle) => vehicle.id === selectedVehicleId.value)?.vehicle_type ?? null;
@@ -132,6 +133,8 @@ const receiptTypes = computed(() => [
   { label: t('payments.receiptInv'), value: 'INV' },
   { label: t('payments.receiptFtk'), value: 'FTK' },
 ]);
+const generatedOutputs = ref<GeneratedDocument[]>([]);
+const generatedDialogVisible = ref(false);
 const modelDialogVisible = ref(false);
 const newModelName = ref('');
 const modelSaving = ref(false);
@@ -170,9 +173,6 @@ watch(selectedVehicleId, (id) => {
   if (v) doc.fuel_type_id = v.current_fuel_type_id;
 });
 watch(() => newV.current_fuel_type_id, (id) => { if (vMode.value === 'new' && id) doc.fuel_type_id = id; });
-watch(() => doc.doc_number, (value) => {
-  if (isSimpleDocumentSelection.value) doc.act_number = value;
-});
 watch(expectedPayment, (pricing) => {
   if (!addPayment.value || pricing.amount <= 0) {
     lastAutoPaymentAmount.value = pricing.amount;
@@ -194,14 +194,15 @@ function validateStep(): string | null {
   }
   if (step.value === 2) {
     if (vMode.value === 'existing' && !selectedVehicleId.value) return t('wizard.errSelectVehicle');
-    if (vMode.value === 'new' && (!newV.license_plate || !newV.vehicle_model_id || !newV.vehicle_type || !newV.current_fuel_type_id)) return t('wizard.errFillVehicle');
+    if (vMode.value === 'new' && isInsuranceOnlySelection.value && (!newV.license_plate || !newV.vehicle_model_id)) return t('wizard.errFillVehicle');
+    if (vMode.value === 'new' && !isInsuranceOnlySelection.value && (!newV.license_plate || !newV.vehicle_model_id || !newV.vehicle_type || !newV.current_fuel_type_id)) return t('wizard.errFillVehicle');
   }
   if (step.value === 3) {
     if (isSimpleDocumentSelection.value) {
-      doc.act_number = doc.act_number || doc.doc_number;
-      doc.fuel_type_id = doc.fuel_type_id || selectedVehicleFuelTypeId.value;
+      doc.fuel_type_id = doc.fuel_type_id || selectedVehicleFuelTypeId.value || fuelTypes.value[0]?.id || null;
     }
-    if (!doc.doc_number || (showActNumber.value && !doc.act_number) || !doc.branch_id || !selectedDocumentTypeIds.value.length || !doc.fuel_type_id) return t('wizard.errFillDocument');
+    if (!doc.branch_id || !selectedDocumentTypeIds.value.length || !doc.fuel_type_id) return t('wizard.errFillDocument');
+    if (isInsuranceOnlySelection.value && !insuranceValidUntil.value) return t('wizard.errFillDocument');
     if (showGasBalloonFields.value && (
       !gasCylinder.type ||
       !gasCylinder.manufacturer_country ||
@@ -243,6 +244,42 @@ function toggleDocumentType(id: number): void {
     : [...selectedDocumentTypeIds.value, id];
 
   doc.document_type_id = selectedDocumentTypeIds.value[0] ?? null;
+}
+
+async function searchVehicleByPlate(): Promise<void> {
+  const plate = plateSearch.value.trim();
+  if (!plate) return;
+
+  plateSearching.value = true;
+  try {
+    const matches = await vehiclesApi.list({ license_plate: plate });
+    const vehicle = matches.find((item) => item.license_plate.toLowerCase() === plate.toLowerCase()) ?? matches[0];
+
+    if (!vehicle) {
+      toast.add({ severity: 'warn', summary: t('common.attention'), detail: t('vehicles.notFound'), life: 3000 });
+      return;
+    }
+
+    if (vehicle.counterparty && !counterparties.value.some((item) => item.id === vehicle.counterparty!.id)) {
+      counterparties.value = [vehicle.counterparty, ...counterparties.value];
+    }
+
+    cpMode.value = 'existing';
+    selectedCounterpartyId.value = vehicle.counterparty_id;
+    vehicles.value = await vehiclesApi.list({ counterparty_id: vehicle.counterparty_id });
+    if (!vehicles.value.some((item) => item.id === vehicle.id)) {
+      vehicles.value = [vehicle, ...vehicles.value];
+    }
+    vMode.value = 'existing';
+    selectedVehicleId.value = vehicle.id;
+    doc.fuel_type_id = vehicle.current_fuel_type_id;
+
+    toast.add({ severity: 'success', summary: t('common.saved'), detail: vehicle.counterparty?.full_name ?? vehicle.license_plate, life: 2500 });
+  } catch (e) {
+    toast.add({ severity: 'error', summary: t('common.error'), detail: extractError(e), life: 5000 });
+  } finally {
+    plateSearching.value = false;
+  }
 }
 
 async function createVehicleModel(): Promise<void> {
@@ -298,19 +335,21 @@ async function submit() {
     // 2) Vehicle
     let vehicleId = selectedVehicleId.value;
     if (vMode.value === 'new') {
-      const created = await vehiclesApi.create({ ...newV, counterparty_id: counterpartyId! });
+      const created = await vehiclesApi.create({
+        ...newV,
+        vehicle_type: newV.vehicle_type || 'Yengil',
+        current_fuel_type_id: newV.current_fuel_type_id || fuelTypes.value[0]?.id,
+        counterparty_id: counterpartyId!,
+      });
       vehicleId = created.id;
     }
 
     // 3) Inspection document
     if (isSimpleDocumentSelection.value) {
-      doc.act_number = doc.act_number || doc.doc_number;
-      doc.fuel_type_id = doc.fuel_type_id || selectedVehicleFuelTypeId.value;
+      doc.fuel_type_id = doc.fuel_type_id || selectedVehicleFuelTypeId.value || fuelTypes.value[0]?.id || null;
     }
 
     const document = await inspectionDocumentsApi.create({
-      doc_number: doc.doc_number,
-      act_number: doc.act_number || doc.doc_number,
       date: toIso(doc.date),
       branch_id: doc.branch_id!,
       vehicle_id: vehicleId!,
@@ -323,20 +362,9 @@ async function submit() {
       subtotal: expectedPayment.value.amount ? expectedPayment.value.amount.toFixed(2) : undefined,
       discount_amount: '0.00',
       total_amount: expectedPayment.value.amount ? expectedPayment.value.amount.toFixed(2) : undefined,
-      notes: gasBalloonDescription.value || undefined,
+      notes: insuranceValidUntil.value ? `Sug'urta amal qilish muddati: ${toIso(insuranceValidUntil.value)}` : gasBalloonDescription.value || undefined,
       gas_cylinder: showGasBalloonFields.value ? { ...gasCylinder } : undefined,
     });
-
-    await Promise.all(selectedDocumentTypes.value.map((type) => generatedDocumentsApi.create({
-      inspection_document_id: document.id,
-      document_type_id: type.id,
-      document_number: `${doc.doc_number}-${type.id}`,
-      status: 'draft',
-      payload: {
-        selected_document_type_ids: selectedDocumentTypeIds.value,
-      },
-      created_by: auth.user!.id,
-    })));
 
     // 4) Optional payment
     if (addPayment.value && payTotal.value > 0) {
@@ -354,13 +382,37 @@ async function submit() {
       window.dispatchEvent(new Event('cash-balance:refresh'));
     }
 
+    generatedOutputs.value = await Promise.all(selectedDocumentTypes.value.map((type) => generatedDocumentsApi.create({
+      inspection_document_id: document.id,
+      document_type_id: type.id,
+      document_number: `${document.doc_number}-${type.id}`,
+      status: 'generated',
+      generated_at: new Date().toISOString(),
+      payload: {
+        selected_document_type_ids: selectedDocumentTypeIds.value,
+        valid_until: insuranceValidUntil.value ? toIso(insuranceValidUntil.value) : null,
+      },
+      created_by: auth.user!.id,
+    })));
+
     toast.add({ severity: 'success', summary: t('wizard.done'), detail: t('wizard.docRegistered'), life: 3000 });
-    router.push('/documents');
+    generatedDialogVisible.value = true;
   } catch (e) {
     toast.add({ severity: 'error', summary: t('common.error'), detail: extractError(e), life: 6000 });
   } finally {
     submitting.value = false;
   }
+}
+
+async function openGeneratedDocument(document: GeneratedDocument): Promise<void> {
+  const blob = await generatedDocumentsApi.download(document.id);
+  const url = URL.createObjectURL(blob);
+  window.open(url, '_blank', 'noopener,noreferrer');
+}
+
+function finishAfterGeneratedDocuments(): void {
+  generatedDialogVisible.value = false;
+  router.push('/documents');
 }
 </script>
 
@@ -395,6 +447,14 @@ async function submit() {
     <div class="rounded-2xl border border-slate-800 bg-[#0e1320] p-6">
       <!-- Step 1: Counterparty -->
       <div v-if="step === 1" class="space-y-4">
+        <div>
+          <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('vehicles.plate') }}</label>
+          <div class="flex gap-2">
+            <InputText v-model="plateSearch" class="min-w-0 flex-1" placeholder="01A123BC" @keyup.enter="searchVehicleByPlate" />
+            <Button icon="pi pi-search" :loading="plateSearching" @click="searchVehicleByPlate" />
+          </div>
+        </div>
+
         <div class="flex gap-2">
           <Button :label="$t('wizard.existingClient')" :outlined="cpMode !== 'existing'" size="small" @click="cpMode = 'existing'" />
           <Button :label="$t('wizard.newClient')" :outlined="cpMode !== 'new'" size="small" @click="cpMode = 'new'" />
@@ -435,6 +495,16 @@ async function submit() {
 
       <!-- Step 2: Vehicle -->
       <div v-else-if="step === 2" class="space-y-4">
+        <div>
+          <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('wizard.docTypes') }}</label>
+          <div class="grid grid-cols-1 gap-2 rounded-xl border border-slate-800 p-3 sm:grid-cols-2">
+            <label v-for="type in documentTypeChoices" :key="type.id" class="flex items-center gap-2 text-sm text-slate-300">
+              <Checkbox :model-value="selectedDocumentTypeIds.includes(type.id)" :binary="true" @update:model-value="toggleDocumentType(type.id)" />
+              <span>{{ localizedName(type) }}</span>
+            </label>
+          </div>
+        </div>
+
         <div class="flex gap-2">
           <Button :label="$t('wizard.existingVehicle')" :outlined="vMode !== 'existing'" size="small" :disabled="cpMode === 'new'" @click="vMode = 'existing'" />
           <Button :label="$t('wizard.newVehicle')" :outlined="vMode !== 'new'" size="small" @click="vMode = 'new'" />
@@ -464,23 +534,23 @@ async function submit() {
               <Button icon="pi pi-plus" outlined v-tooltip.top="$t('wizard.addModelTooltip')" @click="modelDialogVisible = true" />
             </div>
           </div>
-          <div>
+          <div v-if="!isInsuranceOnlySelection">
             <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('vehicles.vehicleType') }}</label>
             <Select v-model="newV.vehicle_type" :options="vehicleTypes" option-label="label" option-value="value" class="w-full" :placeholder="$t('common.select')" />
           </div>
-          <div>
+          <div v-if="!isInsuranceOnlySelection">
             <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('vehicles.manufactureYear') }}</label>
             <InputNumber v-model="newV.manufacture_year" class="w-full" :use-grouping="false" :min="1900" :max="2100" />
           </div>
-          <div>
+          <div v-if="!isInsuranceOnlySelection">
             <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('documents.fuelType') }}</label>
             <Select v-model="newV.current_fuel_type_id" :options="fuelTypes" :option-label="localizedName" option-value="id" class="w-full" :placeholder="$t('common.select')" />
           </div>
-          <div>
+          <div v-if="!isInsuranceOnlySelection">
             <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('vehicles.bodyNumber') }}</label>
             <InputText v-model="newV.body_number" class="w-full" />
           </div>
-          <div>
+          <div v-if="!isInsuranceOnlySelection">
             <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('vehicles.engineNumber') }}</label>
             <InputText v-model="newV.engine_number" class="w-full" />
           </div>
@@ -489,14 +559,6 @@ async function submit() {
 
       <!-- Step 3: Document -->
       <div v-else-if="step === 3" class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div>
-          <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('documents.docNumber') }}</label>
-          <InputText v-model="doc.doc_number" class="w-full" />
-        </div>
-        <div v-if="showActNumber">
-          <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('documents.actNumber') }}</label>
-          <InputText v-model="doc.act_number" class="w-full" />
-        </div>
         <div>
           <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('common.date') }}</label>
           <DatePicker v-model="doc.date" class="w-full" date-format="yy-mm-dd" />
@@ -518,6 +580,10 @@ async function submit() {
         <div v-if="showFuelType">
           <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('documents.fuelType') }}</label>
           <Select v-model="doc.fuel_type_id" :options="fuelTypes" :option-label="localizedName" option-value="id" class="w-full" :placeholder="$t('common.select')" />
+        </div>
+        <div v-if="isInsuranceOnlySelection">
+          <label class="mb-1.5 block text-sm font-medium text-slate-300">Amal qilish muddati</label>
+          <DatePicker v-model="insuranceValidUntil" class="w-full" date-format="yy-mm-dd" />
         </div>
         <div v-if="showGasBalloonFields" class="grid grid-cols-1 gap-4 rounded-xl border border-emerald-900/60 bg-emerald-950/20 p-4 sm:col-span-2 sm:grid-cols-2">
           <div>
@@ -595,6 +661,25 @@ async function submit() {
         <template #footer>
           <Button :label="$t('common.cancel')" text @click="modelDialogVisible = false" />
           <Button :label="$t('wizard.add')" icon="pi pi-check" :loading="modelSaving" @click="createVehicleModel" />
+        </template>
+      </Dialog>
+
+      <Dialog v-model:visible="generatedDialogVisible" modal header="Tayyor hujjatlar" class="w-full max-w-lg" :closable="false">
+        <div class="space-y-2 pt-2">
+          <div
+            v-for="document in generatedOutputs"
+            :key="document.id"
+            class="flex items-center justify-between gap-3 rounded-lg border border-slate-800 p-3"
+          >
+            <div>
+              <div class="font-medium text-slate-200">{{ document.document_type ? localizedName(document.document_type) : document.document_number }}</div>
+              <div class="text-sm text-slate-500">{{ document.document_number }}</div>
+            </div>
+            <Button label="PDF" icon="pi pi-file-pdf" size="small" @click="openGeneratedDocument(document)" />
+          </div>
+        </div>
+        <template #footer>
+          <Button label="Yopish" icon="pi pi-check" @click="finishAfterGeneratedDocuments" />
         </template>
       </Dialog>
 

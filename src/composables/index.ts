@@ -97,7 +97,6 @@ export interface Vehicle {
 export interface InspectionDocument {
   id: number;
   doc_number: string;
-  act_number: string;
   date: string;
   branch_id: number;
   branch?: Branch;

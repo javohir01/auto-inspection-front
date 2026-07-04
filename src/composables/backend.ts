@@ -182,8 +182,7 @@ function seedDb(): MockDb {
   const inspectionDocuments: InspectionDocument[] = [
     {
       id: 1,
-      doc_number: 'DOC-2401',
-      act_number: 'ACT-2401',
+      doc_number: 'DOC-000001',
       date: today,
       branch_id: 1,
       vehicle_id: 1,
@@ -195,8 +194,7 @@ function seedDb(): MockDb {
     },
     {
       id: 2,
-      doc_number: 'DOC-2402',
-      act_number: 'ACT-2402',
+      doc_number: 'DOC-000002',
       date: today,
       branch_id: 2,
       vehicle_id: 2,
