@@ -12,11 +12,11 @@ const { isDark, toggleTheme } = useTheme();
 const phone = ref('998901112233');
 const password = ref('password');
 const error = ref('');
-const demoCredentials = [
-  { role: 'Admin', phone: '998901112233', password: 'password' },
-  { role: 'Kassir', phone: '998901112244', password: 'password' },
-  { role: 'Filial manager', phone: '998901112255', password: 'password' },
-];
+// const demoCredentials = [
+//   { role: 'Admin', phone: '998901112233', password: 'password' },
+//   { role: 'Kassir', phone: '998901112244', password: 'password' },
+//   { role: 'Filial manager', phone: '998901112255', password: 'password' },
+// ];
 
 async function submit() {
   error.value = '';
