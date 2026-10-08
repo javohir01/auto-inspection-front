@@ -2,25 +2,26 @@
 import { onBeforeUnmount, onMounted, ref, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
-import { cashBalanceApi } from '@/api/services';
 import { useAuthStore } from '@/stores/auth';
+import { useCashBalanceStore } from '@/stores/cashBalance';
 import { useTheme } from '@/composables/useTheme';
 import { extractError } from '@/composables/useCrud';
 import { translate as t } from '@/i18n';
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue';
-import type { Role, CashBalance } from '@/types';
+import type { Role } from '@/types';
 
 const router = useRouter();
 const route = useRoute();
 const auth = useAuthStore();
+const balanceStore = useCashBalanceStore();
 const toast = useToast();
 // Two independent states: desktop collapses the rail to icons, mobile slides
 // the full sidebar in as an off-canvas drawer over the content.
 const desktopCollapsed = ref(false);
 const mobileMenuOpen = ref(false);
 const { isDark, toggleTheme } = useTheme();
-const cashBalance = ref<CashBalance | null>(null);
-const balanceLoading = ref(false);
+const cashBalance = computed(() => balanceStore.balance);
+const balanceLoading = computed(() => balanceStore.loading);
 const safeDialogVisible = ref(false);
 const safeSaving = ref(false);
 const safeForm = ref({ amount: 0, description: '' });
@@ -80,17 +81,12 @@ function money(v: string | number | null | undefined): string {
 async function refreshBalance() {
   if (!auth.user || !['admin', 'branch_manager', 'cashier'].includes(auth.user.role)) return;
 
-  balanceLoading.value = true;
   try {
-    cashBalance.value = await cashBalanceApi.summary({
+    await balanceStore.refresh({
       branch_id: auth.user.branch_id,
       employee_id: auth.user.id,
-    });
-  } catch {
-    cashBalance.value = null;
-  } finally {
-    balanceLoading.value = false;
-  }
+    }, true);
+  } catch { /* Keep the last successfully loaded balance. */ }
 }
 
 function openSafeDeposit() {
@@ -101,12 +97,11 @@ function openSafeDeposit() {
 async function saveSafeDeposit() {
   safeSaving.value = true;
   try {
-    const result = await cashBalanceApi.safeDeposit({
+    await balanceStore.safeDeposit({
       branch_id: auth.user?.branch_id ?? null,
       amount: Number(safeForm.value.amount || 0),
       description: safeForm.value.description || null,
     });
-    cashBalance.value = result.summary;
     safeDialogVisible.value = false;
     window.dispatchEvent(new Event('cash-balance:refresh'));
     toast.add({ severity: 'success', summary: t('common.saved'), detail: t('header.depositedToSafe'), life: 3000 });
@@ -131,7 +126,10 @@ onBeforeUnmount(() => {
   window.removeEventListener('cash-balance:refresh', refreshBalance);
 });
 
-watch(() => route.fullPath, () => refreshBalance());
+watch(() => route.fullPath, () => balanceStore.refresh({
+  branch_id: auth.user?.branch_id ?? null,
+  employee_id: auth.user?.id ?? null,
+}).catch(() => undefined));
 </script>
 
 <template>

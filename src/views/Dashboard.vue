@@ -1,28 +1,24 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
-import {
-  branchesApi,
-  counterpartiesApi,
-  vehiclesApi,
-  usersApi,
-  inspectionDocumentsApi,
-  cashBalanceApi,
-} from '@/api/services';
+import { dashboardApi } from '@/api/services';
 import { useAuthStore } from '@/stores/auth';
-import type { InspectionDocument, CashBalance } from '@/types';
+import { useCashBalanceStore } from '@/stores/cashBalance';
+import type { InspectionDocument } from '@/types';
+import { toApiDate } from '@/utils/dataFormat';
 
 const router = useRouter();
 const auth = useAuthStore();
+const balanceStore = useCashBalanceStore();
 const isAdmin = computed(() => auth.user?.role === 'admin');
 
 const loading = ref(true);
 const stats = ref({ branches: 0, counterparties: 0, vehicles: 0, users: 0, documents: 0 });
 const recentDocs = ref<InspectionDocument[]>([]);
 const todayDocs = ref<InspectionDocument[]>([]);
-const cashBalance = ref<CashBalance | null>(null);
+const cashBalance = computed(() => balanceStore.balance);
 
-const today = new Date().toISOString().slice(0, 10);
+const today = toApiDate(new Date()) ?? '';
 
 function money(v: string | number): string {
   return new Intl.NumberFormat('uz-UZ').format(Number(v));
@@ -43,50 +39,31 @@ const cards = [
 ] as const;
 
 async function loadDailyBalance(): Promise<void> {
-  cashBalance.value = await cashBalanceApi.summary({
+  await balanceStore.refresh({
     branch_id: auth.user?.branch_id ?? null,
     employee_id: auth.user?.id ?? null,
-    date: today,
-  });
+  }, true);
 }
 
 async function refreshDashboardBalance(): Promise<void> {
   try {
     await loadDailyBalance();
-  } catch {
-    cashBalance.value = null;
-  }
+  } catch { /* Layout keeps the last known balance visible. */ }
 }
 
 onMounted(async () => {
   window.addEventListener('cash-balance:refresh', refreshDashboardBalance);
   try {
-    [cashBalance.value, todayDocs.value] = await Promise.all([
-      cashBalanceApi.summary({
+    const [, summary] = await Promise.all([
+      balanceStore.refresh({
         branch_id: auth.user?.branch_id ?? null,
         employee_id: auth.user?.id ?? null,
-        date: today,
       }).catch(() => null),
-      inspectionDocumentsApi.list({ start_date: today, end_date: today }),
+      dashboardApi.summary({ branch_id: auth.user?.branch_id ?? null }),
     ]);
-
-    if (isAdmin.value) {
-      const [branches, counterparties, vehicles, users, documents] = await Promise.all([
-        branchesApi.list(),
-        counterpartiesApi.list(),
-        vehiclesApi.list(),
-        usersApi.list().catch(() => []),
-        inspectionDocumentsApi.list(),
-      ]);
-      stats.value = {
-        branches: branches.length,
-        counterparties: counterparties.length,
-        vehicles: vehicles.length,
-        users: users.length,
-        documents: documents.length,
-      };
-      recentDocs.value = documents.slice(0, 8);
-    }
+    stats.value = summary.counts;
+    todayDocs.value = summary.today_documents;
+    recentDocs.value = summary.recent_documents;
   } finally {
     loading.value = false;
   }
@@ -140,7 +117,7 @@ onBeforeUnmount(() => {
 
     <div class="rounded-2xl border border-slate-800 bg-[#0e1320] p-5">
       <h2 class="mb-4 text-lg font-semibold">{{ isAdmin ? $t('dashboard.recentDocs') : $t('dashboard.todayDocs') }}</h2>
-      <DataTable :value="isAdmin ? recentDocs : todayDocs" :loading="loading" size="small" paginator :rows="8" class="text-sm">
+      <DataTable :value="isAdmin ? recentDocs : todayDocs" :loading="loading" size="small" class="text-sm">
         <template #empty><div class="p-6 text-center text-slate-500">{{ $t('dashboard.noDocs') }}</div></template>
         <Column field="doc_number" :header="$t('dashboard.docNumber')" />
         <Column :header="$t('dashboard.vehicle')">

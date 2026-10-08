@@ -11,7 +11,8 @@ import { calculateInspectionPaymentAmount, hasGasInspection } from '@/composable
 import { useAuthStore } from '@/stores/auth';
 import { extractError } from '@/composables/useCrud';
 import { localizedName, translate as t } from '@/i18n';
-import type { Region, District, VehicleModel, FuelType, DocumentType, Branch, Counterparty, Vehicle, PaymentMethod, VehicleType, GeneratedDocument } from '@/types';
+import type { Region, District, VehicleModel, FuelType, DocumentType, Branch, Counterparty, Vehicle, PaymentMethod, VehicleType, GeneratedDocument, InspectionDocument } from '@/types';
+import { normalizeLicensePlate, normalizePhone, toApiDate } from '@/utils/dataFormat';
 
 const router = useRouter();
 const toast = useToast();
@@ -20,6 +21,8 @@ const auth = useAuthStore();
 const step = ref(1);
 const steps = computed(() => [t('wizard.step.client'), t('wizard.step.vehicle'), t('wizard.step.document'), t('wizard.step.payment')]);
 const submitting = ref(false);
+const referencesLoading = ref(true);
+const referencesError = ref('');
 
 // Reference data
 const regions = ref<Region[]>([]);
@@ -69,10 +72,16 @@ const selectedDocumentTypeIds = ref<number[]>([]);
 const selectedDocumentTypes = computed(() => documentTypes.value.filter((type) => selectedDocumentTypeIds.value.includes(type.id)));
 const selectedDocumentKinds = computed(() => selectedDocumentTypes.value.map((type) => `${type.code ?? ''} ${type.name ?? ''}`.toUpperCase()));
 const hasRegularInspectionDocument = computed(() => selectedDocumentKinds.value.some((kind) => kind.includes('TEXOSMOTR') || kind.includes('GAZ')));
+const hasInsuranceDocument = computed(() => selectedDocumentKinds.value.some((kind) => kind.includes('SUG')));
 const isInsuranceOnlySelection = computed(() => selectedDocumentKinds.value.length > 0 && selectedDocumentKinds.value.every((kind) => kind.includes('SUG')));
 const isSimpleDocumentSelection = computed(() => selectedDocumentTypeIds.value.length > 0 && !hasRegularInspectionDocument.value);
 const showFuelType = computed(() => !isSimpleDocumentSelection.value);
 const insuranceValidUntil = ref<Date | null>(null);
+const documentValidUntil = ref<Date | null>(null);
+const isReinspection = ref(false);
+const previousInspectionDocumentId = ref<number | null>(null);
+const previousDocuments = ref<InspectionDocument[]>([]);
+const previousDocumentsLoading = ref(false);
 const selectedVehicleType = computed(() => {
   if (vMode.value === 'existing') {
     return vehicles.value.find((vehicle) => vehicle.id === selectedVehicleId.value)?.vehicle_type ?? null;
@@ -144,17 +153,27 @@ function money(v: number): string {
 }
 
 function toIso(d: Date | string): string {
-  return d instanceof Date ? d.toISOString().slice(0, 10) : String(d).slice(0, 10);
+  return toApiDate(d) ?? '';
 }
 
-onMounted(async () => {
-  [regions.value, districts.value, models.value, fuelTypes.value, documentTypes.value, branches.value, counterparties.value, paymentMethods.value] =
-    await Promise.all([
-      regionsApi.list(), districtsApi.list(), vehicleModelsApi.list(),
-      fuelTypesApi.list(), documentTypesApi.list(), branchesApi.list(), counterpartiesApi.list(), paymentMethodsApi.list().catch(() => []),
-    ]);
-  selectDefaultDocumentType();
-});
+async function loadReferences(): Promise<void> {
+  referencesLoading.value = true;
+  referencesError.value = '';
+  try {
+    [regions.value, districts.value, models.value, fuelTypes.value, documentTypes.value, branches.value, counterparties.value, paymentMethods.value] =
+      await Promise.all([
+        regionsApi.list(), districtsApi.list(), vehicleModelsApi.list(),
+        fuelTypesApi.list(), documentTypesApi.list(), branchesApi.list(), counterpartiesApi.list(), paymentMethodsApi.list().catch(() => []),
+      ]);
+    selectDefaultDocumentType();
+  } catch (error) {
+    referencesError.value = extractError(error);
+  } finally {
+    referencesLoading.value = false;
+  }
+}
+
+onMounted(loadReferences);
 
 // New counterparty has no existing vehicles, so force vehicle creation.
 watch(cpMode, (m) => { if (m === 'new') vMode.value = 'new'; });
@@ -168,9 +187,36 @@ watch(selectedCounterpartyId, async (id) => {
 });
 
 // Default the document's fuel type from the chosen vehicle.
-watch(selectedVehicleId, (id) => {
+watch(selectedVehicleId, async (id) => {
   const v = vehicles.value.find((x) => x.id === id);
   if (v) doc.fuel_type_id = v.current_fuel_type_id;
+  previousInspectionDocumentId.value = null;
+  isReinspection.value = false;
+  previousDocuments.value = [];
+  if (!id || vMode.value !== 'existing') return;
+
+  previousDocumentsLoading.value = true;
+  try {
+    previousDocuments.value = await inspectionDocumentsApi.list({
+      vehicle_id: id,
+      branch_id: doc.branch_id ?? undefined,
+      end_date: toIso(doc.date),
+      sort_field: 'date',
+      sort_dir: 'desc',
+    });
+  } finally {
+    previousDocumentsLoading.value = false;
+  }
+});
+watch(vMode, (mode) => {
+  if (mode === 'new') {
+    isReinspection.value = false;
+    previousInspectionDocumentId.value = null;
+    previousDocuments.value = [];
+  }
+});
+watch(isReinspection, (enabled) => {
+  if (!enabled) previousInspectionDocumentId.value = null;
 });
 watch(() => newV.current_fuel_type_id, (id) => { if (vMode.value === 'new' && id) doc.fuel_type_id = id; });
 watch(expectedPayment, (pricing) => {
@@ -202,7 +248,8 @@ function validateStep(): string | null {
       doc.fuel_type_id = doc.fuel_type_id || selectedVehicleFuelTypeId.value || fuelTypes.value[0]?.id || null;
     }
     if (!doc.branch_id || !selectedDocumentTypeIds.value.length || !doc.fuel_type_id) return t('wizard.errFillDocument');
-    if (isInsuranceOnlySelection.value && !insuranceValidUntil.value) return t('wizard.errFillDocument');
+    if (isReinspection.value && !previousInspectionDocumentId.value) return 'Oldingi hujjatni tanlang.';
+    if (hasInsuranceDocument.value && !insuranceValidUntil.value) return t('wizard.errFillDocument');
     if (showGasBalloonFields.value && (
       !gasCylinder.type ||
       !gasCylinder.manufacturer_country ||
@@ -247,8 +294,9 @@ function toggleDocumentType(id: number): void {
 }
 
 async function searchVehicleByPlate(): Promise<void> {
-  const plate = plateSearch.value.trim();
+  const plate = normalizeLicensePlate(plateSearch.value);
   if (!plate) return;
+  plateSearch.value = plate;
 
   plateSearching.value = true;
   try {
@@ -328,7 +376,7 @@ async function submit() {
     // 1) Counterparty
     let counterpartyId = selectedCounterpartyId.value;
     if (cpMode.value === 'new') {
-      const created = await counterpartiesApi.create(newCp);
+      const created = await counterpartiesApi.create({ ...newCp, phone: normalizePhone(newCp.phone) });
       counterpartyId = created.id;
     }
 
@@ -337,6 +385,7 @@ async function submit() {
     if (vMode.value === 'new') {
       const created = await vehiclesApi.create({
         ...newV,
+        license_plate: normalizeLicensePlate(newV.license_plate),
         vehicle_type: newV.vehicle_type || 'Yengil',
         current_fuel_type_id: newV.current_fuel_type_id || fuelTypes.value[0]?.id,
         counterparty_id: counterpartyId!,
@@ -359,10 +408,13 @@ async function submit() {
       primary_document_type_id: selectedDocumentTypeIds.value[0],
       employee_id: auth.user!.id,
       status: doc.status as 'pending' | 'completed',
+      previous_inspection_document_id: isReinspection.value ? previousInspectionDocumentId.value : null,
+      valid_until: documentValidUntil.value ? toIso(documentValidUntil.value) : null,
+      insurance_valid_until: insuranceValidUntil.value ? toIso(insuranceValidUntil.value) : null,
       subtotal: expectedPayment.value.amount ? expectedPayment.value.amount.toFixed(2) : undefined,
       discount_amount: '0.00',
       total_amount: expectedPayment.value.amount ? expectedPayment.value.amount.toFixed(2) : undefined,
-      notes: insuranceValidUntil.value ? `Sug'urta amal qilish muddati: ${toIso(insuranceValidUntil.value)}` : gasBalloonDescription.value || undefined,
+      notes: gasBalloonDescription.value || undefined,
       gas_cylinder: showGasBalloonFields.value ? { ...gasCylinder } : undefined,
     });
 
@@ -386,11 +438,16 @@ async function submit() {
       inspection_document_id: document.id,
       document_type_id: type.id,
       document_number: `${document.doc_number}-${type.id}`,
+      valid_until: `${type.code ?? ''} ${type.name ?? ''}`.toUpperCase().includes('SUG')
+        ? (insuranceValidUntil.value ? toIso(insuranceValidUntil.value) : null)
+        : (documentValidUntil.value ? toIso(documentValidUntil.value) : null),
       status: 'generated',
       generated_at: new Date().toISOString(),
       payload: {
         selected_document_type_ids: selectedDocumentTypeIds.value,
-        valid_until: insuranceValidUntil.value ? toIso(insuranceValidUntil.value) : null,
+        valid_until: `${type.code ?? ''} ${type.name ?? ''}`.toUpperCase().includes('SUG')
+          ? (insuranceValidUntil.value ? toIso(insuranceValidUntil.value) : null)
+          : (documentValidUntil.value ? toIso(documentValidUntil.value) : null),
       },
       created_by: auth.user!.id,
     })));
@@ -408,6 +465,7 @@ async function openGeneratedDocument(document: GeneratedDocument): Promise<void>
   const blob = await generatedDocumentsApi.download(document.id);
   const url = URL.createObjectURL(blob);
   window.open(url, '_blank', 'noopener,noreferrer');
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
 function finishAfterGeneratedDocuments(): void {
@@ -444,7 +502,16 @@ function finishAfterGeneratedDocuments(): void {
     <!-- Current step name (mobile, where per-step labels are hidden) -->
     <p class="-mt-2 text-center text-sm font-medium text-emerald-400 sm:hidden">{{ step }}/{{ steps.length }} · {{ steps[step - 1] }}</p>
 
-    <div class="rounded-2xl border border-slate-800 bg-[#0e1320] p-6">
+    <div v-if="referencesLoading" class="flex min-h-56 items-center justify-center rounded-2xl border border-slate-800 bg-[#0e1320]">
+      <ProgressSpinner class="h-10 w-10" />
+    </div>
+    <Message v-else-if="referencesError" severity="error" :closable="false">
+      <div class="flex flex-wrap items-center gap-3">
+        <span>{{ referencesError }}</span>
+        <Button :label="$t('common.retry')" icon="pi pi-refresh" size="small" @click="loadReferences" />
+      </div>
+    </Message>
+    <div v-else class="rounded-2xl border border-slate-800 bg-[#0e1320] p-6">
       <!-- Step 1: Counterparty -->
       <div v-if="step === 1" class="space-y-4">
         <div>
@@ -581,9 +648,35 @@ function finishAfterGeneratedDocuments(): void {
           <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('documents.fuelType') }}</label>
           <Select v-model="doc.fuel_type_id" :options="fuelTypes" :option-label="localizedName" option-value="id" class="w-full" :placeholder="$t('common.select')" />
         </div>
-        <div v-if="isInsuranceOnlySelection">
-          <label class="mb-1.5 block text-sm font-medium text-slate-300">Amal qilish muddati</label>
+        <div v-if="hasInsuranceDocument">
+          <label class="mb-1.5 block text-sm font-medium text-slate-300">Sug‘urta amal qilish muddati</label>
           <DatePicker v-model="insuranceValidUntil" class="w-full" date-format="yy-mm-dd" />
+        </div>
+        <div>
+          <label class="mb-1.5 block text-sm font-medium text-slate-300">Hujjat amal qilish muddati</label>
+          <DatePicker v-model="documentValidUntil" class="w-full" date-format="yy-mm-dd" show-button-bar />
+        </div>
+        <div v-if="vMode === 'existing'" class="space-y-3 sm:col-span-2">
+          <label class="flex items-center gap-2 text-sm text-slate-300">
+            <Checkbox v-model="isReinspection" :binary="true" />
+            Qayta ko‘rik — oldingi hujjat bilan bog‘lash
+          </label>
+          <Select
+            v-if="isReinspection"
+            v-model="previousInspectionDocumentId"
+            :options="previousDocuments"
+            option-value="id"
+            class="w-full"
+            :loading="previousDocumentsLoading"
+            placeholder="Oldingi hujjatni tanlang"
+          >
+            <template #option="{ option }">{{ option.doc_number }} — {{ option.date }} — {{ option.document_type?.name ?? 'Hujjat' }}</template>
+            <template #value="{ value }">
+              <span v-if="value">{{ previousDocuments.find((item) => item.id === value)?.doc_number }} — {{ previousDocuments.find((item) => item.id === value)?.date }}</span>
+              <span v-else class="text-slate-500">Oldingi hujjatni tanlang</span>
+            </template>
+          </Select>
+          <p v-if="isReinspection && !previousDocuments.length && !previousDocumentsLoading" class="text-sm text-amber-400">Bu transport uchun oldingi hujjat topilmadi.</p>
         </div>
         <div v-if="showGasBalloonFields" class="grid grid-cols-1 gap-4 rounded-xl border border-emerald-900/60 bg-emerald-950/20 p-4 sm:col-span-2 sm:grid-cols-2">
           <div>

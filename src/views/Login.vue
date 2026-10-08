@@ -4,13 +4,14 @@ import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { extractError } from '@/composables/useCrud';
 import { useTheme } from '@/composables/useTheme';
+import { normalizePhone } from '@/utils/dataFormat';
 
 const router = useRouter();
 const auth = useAuthStore();
 const { isDark, toggleTheme } = useTheme();
 
-const phone = ref('998901112233');
-const password = ref('password');
+const phone = ref('');
+const password = ref('');
 const error = ref('');
 // const demoCredentials = [
 //   { role: 'Admin', phone: '998901112233', password: 'password' },
@@ -21,7 +22,7 @@ const error = ref('');
 async function submit() {
   error.value = '';
   try {
-    await auth.login(phone.value, password.value);
+    await auth.login(normalizePhone(phone.value), password.value);
     router.push({ name: 'Dashboard' });
   } catch (e) {
     error.value = extractError(e);
@@ -54,7 +55,7 @@ async function submit() {
         <form class="space-y-5" @submit.prevent="submit">
           <div>
             <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('login.phone') }}</label>
-            <InputText v-model="phone" class="w-full" placeholder="998901112233" autocomplete="username" />
+            <InputText v-model="phone" class="w-full" placeholder="+998901112233" autocomplete="username" />
           </div>
           <div>
             <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('login.password') }}</label>

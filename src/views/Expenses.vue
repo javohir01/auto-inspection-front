@@ -5,10 +5,11 @@ import { useCrud } from '@/composables/useCrud';
 import { translate as t } from '@/i18n';
 import { useAuthStore } from '@/stores/auth';
 import type { Expense, Branch, User } from '@/types';
+import { fromApiDate, toApiDate } from '@/utils/dataFormat';
 
 const auth = useAuthStore();
 const crud = useCrud<Expense>(expensesApi, { label: 'Xarajat' });
-const { items, loading, saving, dialogVisible, isEdit, form } = crud;
+const { items, loading, saving, dialogVisible, isEdit, form, fieldErrors, totalRecords, rows, first } = crud;
 
 const branches = ref<Branch[]>([]);
 const employees = ref<User[]>([]);
@@ -28,13 +29,6 @@ const isCustomExpense = computed(() => form.value.basis === 'Boshqa');
 
 function money(v: string | number): string {
   return new Intl.NumberFormat('uz-UZ').format(Number(v));
-}
-
-// Convert a Date picker value to the Y-m-d string the API expects on save.
-function toIso(d: unknown): string | null {
-  if (!d) return null;
-  if (d instanceof Date) return d.toISOString().slice(0, 10);
-  return String(d).slice(0, 10);
 }
 
 onMounted(async () => {
@@ -60,12 +54,13 @@ function openEditExpense(expense: Expense) {
   customBasis.value = knownBasisValues.includes(expense.basis) ? '' : expense.basis;
   crud.openEdit({
     ...expense,
+    date: fromApiDate(expense.date) ?? new Date(),
     basis: knownBasisValues.includes(expense.basis) ? expense.basis : 'Boshqa',
-  });
+  } as unknown as Expense);
 }
 
 async function handleSave() {
-  form.value.date = toIso(form.value.date);
+  form.value.date = toApiDate(form.value.date);
   form.value.employee_id = form.value.employee_id ?? auth.user?.id ?? null;
   form.value.payment_method = 'Naqd';
   if (isCustomExpense.value) {
@@ -90,9 +85,9 @@ async function handleSave() {
     </div>
 
     <div class="rounded-2xl border border-slate-800 bg-[#0e1320] p-2">
-      <DataTable :value="items" :loading="loading" paginator :rows="10" data-key="id">
+      <DataTable :value="items" :loading="loading" paginator lazy :rows="rows" :rows-per-page-options="[10, 25, 50]" :first="first" :total-records="totalRecords" data-key="id" @page="crud.onPage" @sort="crud.onSort">
         <template #empty><div class="p-6 text-center text-slate-500">{{ $t('expenses.notFound') }}</div></template>
-        <Column field="date" :header="$t('common.date')" />
+        <Column field="date" :header="$t('common.date')" sortable />
         <Column :header="$t('expenses.branch')">
           <template #body="{ data }">{{ data.branch?.name ?? '—' }}</template>
         </Column>
@@ -118,11 +113,13 @@ async function handleSave() {
       <div class="grid grid-cols-1 gap-4 pt-2 sm:grid-cols-2">
         <div>
           <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('expenses.branch') }}</label>
-          <Select v-model="form.branch_id" :options="branches" option-label="name" option-value="id" class="w-full" :placeholder="$t('common.select')" />
+          <Select v-model="form.branch_id" :options="branches" option-label="name" option-value="id" class="w-full" :invalid="!!fieldErrors.branch_id" :placeholder="$t('common.select')" />
+          <InlineError :message="fieldErrors.branch_id" />
         </div>
         <div>
           <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('common.date') }}</label>
-          <DatePicker v-model="form.date" class="w-full" date-format="yy-mm-dd" />
+          <DatePicker v-model="form.date" class="w-full" :invalid="!!fieldErrors.date" date-format="yy-mm-dd" />
+          <InlineError :message="fieldErrors.date" />
         </div>
         <div class="sm:col-span-2">
           <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('expenses.basis') }}</label>
@@ -134,7 +131,8 @@ async function handleSave() {
         </div>
         <div>
           <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('common.amount') }}</label>
-          <InputNumber v-model="form.amount" class="w-full" :min="0" />
+          <InputNumber v-model="form.amount" class="w-full" :invalid="!!fieldErrors.amount" :min="1" />
+          <InlineError :message="fieldErrors.amount" />
         </div>
         <div>
           <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('expenses.employee') }}</label>

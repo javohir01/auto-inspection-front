@@ -8,11 +8,12 @@ import { useCrud } from '@/composables/useCrud';
 import { localizedName, translate as t } from '@/i18n';
 import { useAuthStore } from '@/stores/auth';
 import type { Payment, Branch, Counterparty, PaymentMethod, InspectionDocument } from '@/types';
+import { fromApiDate, toApiDate } from '@/utils/dataFormat';
 
 const auth = useAuthStore();
 const toast = useToast();
 const crud = useCrud<Payment>(paymentsApi, { label: 'To‘lov' });
-const { items, loading, saving, dialogVisible, isEdit, form } = crud;
+const { items, loading, saving, dialogVisible, isEdit, form, fieldErrors, totalRecords, rows, first } = crud;
 
 const branches = ref<Branch[]>([]);
 const counterparties = ref<Counterparty[]>([]);
@@ -26,12 +27,6 @@ const receiptTypes = computed(() => [
 
 function money(v: string | number): string {
   return new Intl.NumberFormat('uz-UZ').format(Number(v));
-}
-
-function toIso(d: unknown): string | null {
-  if (!d) return null;
-  if (d instanceof Date) return d.toISOString().slice(0, 10);
-  return String(d).slice(0, 10);
 }
 
 // Total is always the sum of cash + plastic (matches backend validation).
@@ -84,6 +79,10 @@ function openCreate() {
   lastAutoPaymentAmount.value = 0;
 }
 
+function openEdit(payment: Payment) {
+  crud.openEdit({ ...payment, date: fromApiDate(payment.date) ?? new Date() } as unknown as Payment);
+}
+
 async function handleSave() {
   if (paymentMismatch.value && !String(form.value.description || '').trim()) {
     toast.add({ severity: 'warn', summary: t('common.attention'), detail: t('payments.mismatchWarn'), life: 4000 });
@@ -96,7 +95,7 @@ async function handleSave() {
     ...buildPaymentPayload({
       branchId: Number(form.value.branch_id),
       counterpartyId: Number(form.value.counterparty_id),
-      date: toIso(form.value.date) ?? '',
+      date: toApiDate(form.value.date) ?? '',
       cashAmount: Number(form.value.cash_amount || 0),
       plasticAmount: Number(form.value.plastic_amount || 0),
       inspectionDocumentId: getPrimaryInspectionDocumentId(payment),
@@ -123,9 +122,9 @@ async function handleSave() {
     </div>
 
     <div class="rounded-2xl border border-slate-800 bg-[#0e1320] p-2">
-      <DataTable :value="items" :loading="loading" paginator :rows="10" data-key="id">
+      <DataTable :value="items" :loading="loading" paginator lazy :rows="rows" :rows-per-page-options="[10, 25, 50]" :first="first" :total-records="totalRecords" data-key="id" @page="crud.onPage" @sort="crud.onSort">
         <template #empty><div class="p-6 text-center text-slate-500">{{ $t('payments.notFound') }}</div></template>
-        <Column field="date" :header="$t('common.date')" />
+        <Column field="date" :header="$t('common.date')" sortable />
         <Column :header="$t('payments.client')">
           <template #body="{ data }">{{ data.counterparty?.full_name ?? '—' }}</template>
         </Column>
@@ -147,7 +146,7 @@ async function handleSave() {
         <Column :header="$t('common.actions')" style="width: 8rem">
           <template #body="{ data }">
             <div class="flex gap-2">
-              <Button icon="pi pi-pencil" text rounded size="small" :disabled="data.status === 'posted'" @click="crud.openEdit(data)" />
+              <Button icon="pi pi-pencil" text rounded size="small" :disabled="data.status === 'posted'" @click="openEdit(data)" />
               <Button icon="pi pi-trash" text rounded severity="danger" size="small" :disabled="data.status === 'posted'" @click="crud.remove(data)" />
             </div>
           </template>
@@ -159,11 +158,13 @@ async function handleSave() {
       <div class="grid grid-cols-1 gap-4 pt-2 sm:grid-cols-2">
         <div>
           <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('payments.branch') }}</label>
-          <Select v-model="form.branch_id" :options="branches" option-label="name" option-value="id" class="w-full" :placeholder="$t('common.select')" />
+          <Select v-model="form.branch_id" :options="branches" option-label="name" option-value="id" class="w-full" :invalid="!!fieldErrors.branch_id" :placeholder="$t('common.select')" />
+          <InlineError :message="fieldErrors.branch_id" />
         </div>
         <div>
           <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('payments.client') }}</label>
-          <Select v-model="form.counterparty_id" :options="counterparties" option-label="full_name" option-value="id" class="w-full" filter :placeholder="$t('common.select')" />
+          <Select v-model="form.counterparty_id" :options="counterparties" option-label="full_name" option-value="id" class="w-full" :invalid="!!fieldErrors.counterparty_id" filter :placeholder="$t('common.select')" />
+          <InlineError :message="fieldErrors.counterparty_id" />
         </div>
         <div class="sm:col-span-2">
           <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('payments.document') }}</label>
@@ -179,7 +180,8 @@ async function handleSave() {
         </div>
         <div>
           <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('common.date') }}</label>
-          <DatePicker v-model="form.date" class="w-full" date-format="yy-mm-dd" />
+          <DatePicker v-model="form.date" class="w-full" :invalid="!!fieldErrors.date" date-format="yy-mm-dd" />
+          <InlineError :message="fieldErrors.date" />
         </div>
         <div>
           <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('payments.receiptType') }}</label>
@@ -187,11 +189,11 @@ async function handleSave() {
         </div>
         <div>
           <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('payments.cash') }}</label>
-          <InputNumber v-model="form.cash_amount" class="w-full" :min="0" />
+          <InputNumber v-model="form.cash_amount" class="w-full" :invalid="!!fieldErrors.cash_amount" :min="0" />
         </div>
         <div>
           <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('payments.terminal') }}</label>
-          <InputNumber v-model="form.plastic_amount" class="w-full" :min="0" />
+          <InputNumber v-model="form.plastic_amount" class="w-full" :invalid="!!fieldErrors.plastic_amount" :min="0" />
         </div>
         <div v-if="paymentMismatch" class="sm:col-span-2">
           <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('payments.amountDiffNote') }}</label>
@@ -202,6 +204,7 @@ async function handleSave() {
           <span class="text-lg font-semibold text-emerald-400">{{ money(computedTotal) }} {{ $t('common.som') }}</span>
           <div v-if="expectedPayment.amount" class="mt-1 text-sm text-slate-400">{{ $t('payments.expectedPrice') }}: {{ money(expectedPayment.amount) }} {{ $t('common.som') }}</div>
         </div>
+        <InlineError class="sm:col-span-2" :message="fieldErrors.total_amount || fieldErrors.lines || fieldErrors.allocations" />
       </div>
       <template #footer>
         <Button :label="$t('common.cancel')" text @click="dialogVisible = false" />

@@ -5,9 +5,10 @@ import { useAuthStore } from '@/stores/auth';
 import { useCrud } from '@/composables/useCrud';
 import { translate as t } from '@/i18n';
 import type { User, Branch } from '@/types';
+import { normalizePhone } from '@/utils/dataFormat';
 
 const crud = useCrud<User>(usersApi, { label: 'Xodim' });
-const { items, loading, saving, dialogVisible, isEdit, form } = crud;
+const { items, loading, saving, dialogVisible, isEdit, form, fieldErrors, totalRecords, rows, first } = crud;
 const auth = useAuthStore();
 
 const branches = ref<Branch[]>([]);
@@ -37,6 +38,11 @@ function roleLabel(role: string) {
   const match = roles.find((r) => r.value === role);
   return match ? t(match.labelKey) : role;
 }
+
+async function saveUser() {
+  form.value.phone = normalizePhone(form.value.phone);
+  await crud.save();
+}
 </script>
 
 <template>
@@ -50,10 +56,10 @@ function roleLabel(role: string) {
     </div>
 
     <div class="rounded-2xl border border-slate-800 bg-[#0e1320] p-2">
-      <DataTable :value="items" :loading="loading" paginator :rows="10" data-key="id">
+      <DataTable :value="items" :loading="loading" paginator lazy :rows="rows" :rows-per-page-options="[10, 25, 50]" :first="first" :total-records="totalRecords" data-key="id" @page="crud.onPage" @sort="crud.onSort">
         <template #empty><div class="p-6 text-center text-slate-500">{{ $t('users.notFound') }}</div></template>
-        <Column field="name" :header="$t('users.fio')" />
-        <Column field="phone" :header="$t('users.phone')" />
+        <Column field="name" :header="$t('users.fio')" sortable />
+        <Column field="phone" :header="$t('users.phone')" sortable />
         <Column :header="$t('users.role')">
           <template #body="{ data }"><Tag :value="roleLabel(data.role)" /></template>
         </Column>
@@ -75,11 +81,13 @@ function roleLabel(role: string) {
       <div class="space-y-4 pt-2">
         <div>
           <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('users.fio') }}</label>
-          <InputText v-model="form.name" class="w-full" />
+          <InputText v-model="form.name" class="w-full" :invalid="!!fieldErrors.name" />
+          <InlineError :message="fieldErrors.name" />
         </div>
         <div>
           <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('users.phone') }}</label>
-          <InputText v-model="form.phone" class="w-full" placeholder="+998..." />
+          <InputText v-model="form.phone" class="w-full" :invalid="!!fieldErrors.phone" placeholder="+998 90 123 45 67" inputmode="tel" />
+          <InlineError :message="fieldErrors.phone" />
         </div>
         <div>
           <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('users.role') }}</label>
@@ -93,12 +101,13 @@ function roleLabel(role: string) {
           <label class="mb-1.5 block text-sm font-medium text-slate-300">
             {{ $t('users.password') }} <span v-if="isEdit" class="text-xs text-slate-500">{{ $t('users.passwordEditHint') }}</span>
           </label>
-          <Password v-model="form.password" class="w-full" input-class="w-full" :feedback="false" toggle-mask />
+          <Password v-model="form.password" class="w-full" input-class="w-full" :invalid="!!fieldErrors.password" :feedback="false" toggle-mask />
+          <InlineError :message="fieldErrors.password" />
         </div>
       </div>
       <template #footer>
         <Button :label="$t('common.cancel')" text @click="dialogVisible = false" />
-        <Button :label="$t('common.save')" icon="pi pi-check" :loading="saving" @click="crud.save()" />
+        <Button :label="$t('common.save')" icon="pi pi-check" :loading="saving" @click="saveUser" />
       </template>
     </Dialog>
   </div>

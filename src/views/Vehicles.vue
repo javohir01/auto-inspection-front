@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { vehiclesApi, counterpartiesApi, vehicleModelsApi, fuelTypesApi } from '@/api/services';
 import { useCrud } from '@/composables/useCrud';
 import { localizedName, translate as t } from '@/i18n';
 import type { Vehicle, Counterparty, VehicleModel, FuelType, VehicleType } from '@/types';
+import { normalizeLicensePlate } from '@/utils/dataFormat';
 
 const crud = useCrud<Vehicle>(vehiclesApi, { label: 'Avtomobil' });
-const { items, loading, saving, dialogVisible, isEdit, form } = crud;
+const { items, loading, saving, dialogVisible, isEdit, form, fieldErrors, totalRecords, rows, first } = crud;
 
 const counterparties = ref<Counterparty[]>([]);
 const models = ref<VehicleModel[]>([]);
@@ -43,8 +44,18 @@ function openCreate() {
 }
 
 function applyFilters() {
-  crud.load({ license_plate: filters.value.license_plate || undefined });
+  crud.load({ license_plate: filters.value.license_plate || undefined }, true);
 }
+async function saveVehicle() {
+  form.value.license_plate = normalizeLicensePlate(form.value.license_plate);
+  await crud.save();
+}
+
+function resetFilters() {
+  filters.value.license_plate = '';
+  void crud.load({}, true);
+}
+watch(() => filters.value.license_plate, () => crud.debouncedLoad({ license_plate: filters.value.license_plate || undefined }));
 </script>
 
 <template>
@@ -57,25 +68,26 @@ function applyFilters() {
       <Button :label="$t('vehicles.newVehicle')" icon="pi pi-plus" @click="openCreate" />
     </div>
 
-    <div class="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+    <div class="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
       <IconField>
         <InputIcon class="pi pi-search" />
         <InputText v-model="filters.license_plate" class="w-full" :placeholder="$t('vehicles.plate')" @keyup.enter="applyFilters" />
       </IconField>
       <Button :label="$t('common.search')" outlined @click="applyFilters" />
+      <Button :label="$t('common.reset')" icon="pi pi-filter-slash" text @click="resetFilters" />
     </div>
 
     <div class="rounded-2xl border border-slate-800 bg-[#0e1320] p-2">
-      <DataTable :value="items" :loading="loading" paginator :rows="10" data-key="id">
+      <DataTable :value="items" :loading="loading" paginator lazy :rows="rows" :rows-per-page-options="[10, 25, 50]" :first="first" :total-records="totalRecords" data-key="id" @page="crud.onPage" @sort="crud.onSort">
         <template #empty><div class="p-6 text-center text-slate-500">{{ $t('vehicles.notFound') }}</div></template>
-        <Column field="license_plate" :header="$t('vehicles.plate')" />
+        <Column field="license_plate" :header="$t('vehicles.plate')" sortable />
         <Column :header="$t('vehicles.type')">
           <template #body="{ data }">{{ vehicleTypeLabel(data.vehicle_type) }}</template>
         </Column>
         <Column :header="$t('vehicles.model')">
           <template #body="{ data }">{{ data.vehicle_model ? localizedName(data.vehicle_model) : '—' }}</template>
         </Column>
-        <Column field="manufacture_year" :header="$t('vehicles.year')" />
+        <Column field="manufacture_year" :header="$t('vehicles.year')" sortable />
         <Column :header="$t('vehicles.owner')">
           <template #body="{ data }">{{ data.counterparty?.full_name ?? '—' }}</template>
         </Column>
@@ -97,15 +109,18 @@ function applyFilters() {
       <div class="grid grid-cols-1 gap-4 pt-2 sm:grid-cols-2">
         <div class="sm:col-span-2">
           <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('vehicles.ownerClient') }}</label>
-          <Select v-model="form.counterparty_id" :options="counterparties" option-label="full_name" option-value="id" class="w-full" filter :placeholder="$t('common.select')" />
+          <Select v-model="form.counterparty_id" :options="counterparties" option-label="full_name" option-value="id" class="w-full" :invalid="!!fieldErrors.counterparty_id" filter :placeholder="$t('common.select')" />
+          <InlineError :message="fieldErrors.counterparty_id" />
         </div>
         <div>
           <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('vehicles.plate') }}</label>
-          <InputText v-model="form.license_plate" class="w-full" placeholder="01A123BC" />
+          <InputText v-model="form.license_plate" class="w-full uppercase" :invalid="!!fieldErrors.license_plate" placeholder="01A123BC" />
+          <InlineError :message="fieldErrors.license_plate" />
         </div>
         <div>
           <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('vehicles.model') }}</label>
-          <Select v-model="form.vehicle_model_id" :options="models" :option-label="localizedName" option-value="id" class="w-full" :placeholder="$t('common.select')" />
+          <Select v-model="form.vehicle_model_id" :options="models" :option-label="localizedName" option-value="id" class="w-full" :invalid="!!fieldErrors.vehicle_model_id" :placeholder="$t('common.select')" />
+          <InlineError :message="fieldErrors.vehicle_model_id" />
         </div>
         <div>
           <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('vehicles.vehicleType') }}</label>
@@ -117,7 +132,8 @@ function applyFilters() {
         </div>
         <div>
           <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('vehicles.fuel') }}</label>
-          <Select v-model="form.current_fuel_type_id" :options="fuelTypes" :option-label="localizedName" option-value="id" class="w-full" :placeholder="$t('common.select')" />
+          <Select v-model="form.current_fuel_type_id" :options="fuelTypes" :option-label="localizedName" option-value="id" class="w-full" :invalid="!!fieldErrors.current_fuel_type_id" :placeholder="$t('common.select')" />
+          <InlineError :message="fieldErrors.current_fuel_type_id" />
         </div>
         <div>
           <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('vehicles.bodyNumber') }}</label>
@@ -134,7 +150,7 @@ function applyFilters() {
       </div>
       <template #footer>
         <Button :label="$t('common.cancel')" text @click="dialogVisible = false" />
-        <Button :label="$t('common.save')" icon="pi pi-check" :loading="saving" @click="crud.save()" />
+        <Button :label="$t('common.save')" icon="pi pi-check" :loading="saving" @click="saveVehicle" />
       </template>
     </Dialog>
   </div>

@@ -15,6 +15,7 @@ import type {
   VehicleModel,
   CashBalance,
 } from '@/types';
+import { toApiDate } from '@/utils/dataFormat';
 
 type ResourceName =
   | 'branches'
@@ -751,8 +752,7 @@ function resourceItems<T>(db: MockDb, path: ResourceName): T[] {
 
 export function isMockModeEnabled(): boolean {
   return import.meta.env.VITE_USE_MOCKS === 'true'
-    || import.meta.env.VITE_USE_MOCK === 'true'
-    || window.localStorage.getItem(MODE_KEY) === 'true';
+    || import.meta.env.VITE_USE_MOCK === 'true';
 }
 
 export function enableMockMode(): void {
@@ -910,7 +910,7 @@ export async function mockCashBalanceSummary(params?: { branch_id?: number | nul
   const db = readDb();
   const branchId = Number(params?.branch_id ?? 1);
   const employeeId = params?.employee_id ? Number(params.employee_id) : null;
-  const date = String(params?.date ?? new Date().toISOString().slice(0, 10));
+  const date = String(params?.date ?? toApiDate(new Date()));
   const payments = db.payments.filter((payment) => {
     if (payment.branch_id !== branchId) return false;
     if (employeeId && payment.employee_id && payment.employee_id !== employeeId) return false;
@@ -966,7 +966,7 @@ export async function mockSafeDeposit(payload: { branch_id?: number | null; amou
     id,
     branch_id: branchId,
     employee_id: 1,
-    date: String(payload.date ?? new Date().toISOString().slice(0, 10)),
+    date: String(payload.date ?? toApiDate(new Date())),
     amount: Number(payload.amount || 0),
     description: payload.description || null,
   });

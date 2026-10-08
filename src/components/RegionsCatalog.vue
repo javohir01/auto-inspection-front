@@ -6,7 +6,7 @@ import { localizedName } from '@/i18n';
 import type { Region } from '@/types';
 
 const crud = useCrud<Region>(regionsApi, { label: 'Viloyat' });
-const { items, loading, saving, dialogVisible, isEdit, form } = crud;
+const { items, loading, saving, dialogVisible, isEdit, form, totalRecords, rows, first } = crud;
 
 onMounted(() => crud.load());
 </script>
@@ -16,7 +16,7 @@ onMounted(() => crud.load());
     <!-- <div class="flex justify-end">
       <Button label="Yangi viloyat" icon="pi pi-plus" size="small" @click="crud.openCreate({ name_uz: '', name_ru: '', name_en: '', name_cyrl: '', soato: null })" />
     </div> -->
-    <DataTable :value="items" :loading="loading" paginator :rows="10" data-key="id">
+    <DataTable :value="items" :loading="loading" paginator lazy :rows="rows" :rows-per-page-options="[10, 25, 50]" :first="first" :total-records="totalRecords" data-key="id" @page="crud.onPage" @sort="crud.onSort">
       <template #empty><div class="p-6 text-center text-slate-500">{{ $t('catalogs.notFound') }}</div></template>
       <Column field="id" header="ID" style="width: 5rem" />
       <Column :header="$t('common.name')">

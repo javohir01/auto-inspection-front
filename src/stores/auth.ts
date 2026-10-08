@@ -5,7 +5,7 @@ import { createMockAdminUser, disableMockMode, enableMockMode, isMockModeEnabled
 import type { User } from '@/types';
 
 function isTestLogin(phone: string, password: string): boolean {
-  return isMockUserCredentials(phone, password);
+  return isMockModeEnabled() && isMockUserCredentials(phone, password);
 }
 
 function isMockToken(token: string | null): boolean {
@@ -45,8 +45,17 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function fetchMe(): Promise<void> {
     if (isMockToken(token.value)) {
-      user.value = await mockFetchMe(token.value);
-      return;
+      if (isMockModeEnabled()) {
+        user.value = await mockFetchMe(token.value);
+        return;
+      }
+
+      // A mock token may remain in localStorage after switching to the real API.
+      token.value = null;
+      user.value = null;
+      setToken(null);
+      disableMockMode();
+      throw new Error('Mock session is disabled');
     }
 
     disableMockMode();

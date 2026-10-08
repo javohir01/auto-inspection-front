@@ -19,7 +19,7 @@ const props = defineProps<{
 }>();
 
 const crud = useCrud<NamedEntity>(props.api, { label: props.label });
-const { items, loading, saving, dialogVisible, isEdit, form } = crud;
+const { items, loading, saving, dialogVisible, isEdit, form, totalRecords, rows, first } = crud;
 
 onMounted(() => crud.load());
 
@@ -39,7 +39,7 @@ async function handleSave(): Promise<void> {
     <div class="flex justify-end">
       <Button :label="$t('catalogs.newOf', { label })" icon="pi pi-plus" size="small" @click="openCreate" />
     </div>
-    <DataTable :value="items" :loading="loading" paginator :rows="10" data-key="id">
+    <DataTable :value="items" :loading="loading" paginator lazy :rows="rows" :rows-per-page-options="[10, 25, 50]" :first="first" :total-records="totalRecords" data-key="id" @page="crud.onPage" @sort="crud.onSort">
       <template #empty><div class="p-6 text-center text-slate-500">{{ $t('catalogs.notFound') }}</div></template>
       <Column field="id" header="ID" style="width: 5rem" />
       <Column :header="$t('common.name')">

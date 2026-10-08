@@ -20,7 +20,7 @@ const priceTypeOptions = computed(() =>
 
 const toast = useToast();
 const crud = useCrud<DocumentType>(documentTypesApi, { label: 'Hujjat turi' });
-const { items, loading, saving, dialogVisible, isEdit, form } = crud;
+const { items, loading, saving, dialogVisible, isEdit, form, totalRecords, rows, first } = crud;
 const basisDocument = ref<File | null>(null);
 const fileInputKey = ref(0);
 // Per vehicle-type prices for the `by_vehicle_type` mode; assembled into FormData on save.
@@ -172,7 +172,7 @@ function priceSummary(item: DocumentType): string {
       <Button :label="$t('docTypes.newDocType')" icon="pi pi-plus" size="small" @click="openCreate" />
     </div>
 
-    <DataTable :value="items" :loading="loading" paginator :rows="10" data-key="id">
+    <DataTable :value="items" :loading="loading" paginator lazy :rows="rows" :rows-per-page-options="[10, 25, 50]" :first="first" :total-records="totalRecords" data-key="id" @page="crud.onPage" @sort="crud.onSort">
       <template #empty><div class="p-6 text-center text-slate-500">{{ $t('documents.notFound') }}</div></template>
       <Column :header="$t('common.name')">
         <template #body="{ data }">{{ localizedName(data) }}</template>

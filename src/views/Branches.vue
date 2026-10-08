@@ -5,7 +5,7 @@ import { useCrud } from '@/composables/useCrud';
 import type { Branch } from '@/types';
 
 const crud = useCrud<Branch>(branchesApi, { label: 'Filial' });
-const { items, loading, saving, dialogVisible, isEdit, form } = crud;
+const { items, loading, saving, dialogVisible, isEdit, form, fieldErrors, totalRecords, rows, first } = crud;
 
 onMounted(() => crud.load());
 
@@ -25,7 +25,7 @@ function openCreate() {
     </div>
 
     <div class="rounded-2xl border border-slate-800 bg-[#0e1320] p-2">
-      <DataTable :value="items" :loading="loading" paginator :rows="10" data-key="id">
+      <DataTable :value="items" :loading="loading" paginator lazy :rows="rows" :rows-per-page-options="[10, 25, 50]" :first="first" :total-records="totalRecords" data-key="id" @page="crud.onPage" @sort="crud.onSort">
         <template #empty><div class="p-6 text-center text-slate-500">{{ $t('branches.notFound') }}</div></template>
         <Column field="id" header="ID" style="width: 5rem" />
         <Column field="name" :header="$t('common.name')" />
@@ -49,7 +49,8 @@ function openCreate() {
       <div class="space-y-4 pt-2">
         <div>
           <label class="mb-1.5 block text-sm font-medium text-slate-300">{{ $t('common.name') }}</label>
-          <InputText v-model="form.name" class="w-full" />
+          <InputText v-model="form.name" class="w-full" :invalid="!!fieldErrors.name" />
+          <InlineError :message="fieldErrors.name" />
         </div>
         <div class="flex items-center gap-2">
           <ToggleSwitch v-model="form.is_active" input-id="active" />

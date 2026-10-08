@@ -132,6 +132,10 @@ export interface InspectionDocument {
   id: number;
   doc_number: string;
   date: string;
+  valid_until?: string | null;
+  insurance_valid_until?: string | null;
+  previous_inspection_document_id?: number | null;
+  previous_inspection_document?: Pick<InspectionDocument, 'id' | 'doc_number' | 'date'> | null;
   branch_id: number;
   branch?: Branch;
   vehicle_id: number;
@@ -158,6 +162,7 @@ export interface GeneratedDocument {
   document_type_id: number;
   document_type?: DocumentType;
   document_number: string;
+  valid_until?: string | null;
   status: 'draft' | 'generated' | 'printed' | 'cancelled' | string;
   generated_at?: string | null;
   printed_at?: string | null;
@@ -167,6 +172,28 @@ export interface GeneratedDocument {
   created_by?: number | null;
   created_at?: string;
   updated_at?: string;
+}
+
+export interface PaginatedResult<T> {
+  data: T[];
+  total: number;
+  currentPage: number;
+  perPage: number;
+  lastPage: number;
+}
+
+export interface DashboardSummary {
+  counts: {
+    branches: number;
+    counterparties: number;
+    vehicles: number;
+    users: number;
+    documents: number;
+    pending_documents: number;
+    today_documents: number;
+  };
+  today_documents: InspectionDocument[];
+  recent_documents: InspectionDocument[];
 }
 
 export interface Payment {
